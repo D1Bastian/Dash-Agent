@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORCHESTRA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="screen">
+        <div class="auth-container">
+            <h1 class="minimal-logo">ORCHESTRA</h1>
+            <p class="subtitle">Personal Agent Orchestration</p>
+            
+            <div class="auth-options">
+                <button class="auth-btn google">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+                    Continue with Google
+                </button>
+                <button class="auth-btn apple">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple">
+                    Continue with Apple
+                </button>
+                <div class="divider"><span>or</span></div>
+                <input type="text" placeholder="Email or Phone number" class="minimal-input">
+                <button class="auth-btn primary" id="continue-btn">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Screen (Hidden initially) -->
+    <div id="main-screen" class="screen" style="display: none;">
+        <div class="top-nav">
+            <div class="logo-small">ORCHESTRA</div>
+            <div class="user-profile">JD</div>
+        </div>
+
+        <div class="command-container">
+            <div class="hero-text">How can ORCHESTRA help you today?</div>
+            
+            <div class="thread-wrapper" id="message-thread">
+                <!-- Messages will appear here -->
+            </div>
+
+            <div class="input-wrapper">
+                <textarea id="command-input" placeholder="Find me the cheapest flight to Tokyo..." rows="1"></textarea>
+                <button id="execute-btn" class="execute-btn">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M2.01 21L23 12L2.01 3L2 10l15 2l-15 2z"/></svg>
+                </button>
+            </div>
+
+            <div class="status-indicator" id="status-area" style="display: none;">
+                <div class="spinner"></div>
+                <span id="status-text">Reasoning...</span>
+            </div>
+
+            <div class="quick-actions">
+                <button class="action-chip">✈️ Book Travel</button>
+                <button class="action-chip">🎁 Ship Gift</button>
+                <button class="action-chip">🛠️ Provision Dev Env</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
