@@ -1,4 +1,4 @@
-# 🚀 Dash Agent: Personal Agent Dash Agenttion
+# 🚀 Dash Agent: Personal Agent Orchestration
 
 Dash Agent is a minimalist consumer interface powered by a high-concurrency, multi-agent background engine. While the user experiences a clean, ChatGPT-style command interface, the background system executes complex, multi-step browser missions autonomously.
 
@@ -10,7 +10,7 @@ Dash Agent is designed to be a **Mobile-First Progressive Web App (PWA)**:
 
 ## 🏛️ Background Architecture (The "Powerhouse")
 The "Magic" of Dash Agent happens invisibly:
-- **Master Dash Agenttor (Dash Agent-1):** A high-resiliency agent that commands a swarm of subagents.
+- **Master Orchestrator (Dash-1):** A high-resiliency agent that commands a swarm of subagents.
 - **WKWebView Clusters:** Background browser nodes that deconstruct the DOM, handle cookies, and fill forms.
 - **Partner Superpowers (MCP):**
     - **MongoDB:** Mission Vault for persistent state and credentials.

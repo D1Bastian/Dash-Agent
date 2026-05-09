@@ -3,7 +3,7 @@ from mcp_client import MCPClient # Hypotedical MCP client library
 
 class MongoVault:
     """
-    Dash Agent-1: MongoDB Mission Vault Integration
+    Dash-1: MongoDB Mission Vault Integration
     Powers the secure storage of deconstructed DOM paths and user preferences.
     """
     def __init__(self):

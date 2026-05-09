@@ -2,7 +2,7 @@ from mcp_client import MCPClient
 
 class FivetranPipeline:
     """
-    Dash Agent-1: Fivetran Data Pipeline
+    Dash-1: Fivetran Data Pipeline
     Automates the flow of mission-captured data into the user's data warehouse.
     """
     def __init__(self):

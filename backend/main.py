@@ -10,7 +10,7 @@ app = FastAPI()
 @app.post("/execute-mission")
 async def execute_mission(user_id: str, query: str):
     """
-    Dash Agent-1 Master Dash Agenttor: Total Advantage Workflow
+    Dash-1 Master Orchestrator: Total Advantage Workflow
     """
     # Initialize Superpowers
     vault = MongoVault()

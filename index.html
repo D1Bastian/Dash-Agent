@@ -3,31 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORCHESTRA</title>
+    <title>Dash AI | Autonomous Intelligence</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Auth Screen -->
     <div id="auth-screen" class="screen">
+        <div class="space-container" id="space-backdrop">
+            <div class="moving-layer starfield"></div>
+            <!-- Floating icons will be injected here by JS -->
+        </div>
         <div class="auth-container">
-            <h1 class="minimal-logo">ORCHESTRA</h1>
-            <p class="subtitle">Personal Agent Orchestration</p>
+            <h1 class="minimal-logo">Dash</h1>
+            <p class="subtitle">The Autonomous Intelligence Layer</p>
             
-            <div class="auth-options">
-                <button class="auth-btn google">
-                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+            <div class="social-btns">
+                <div class="social-btn">
+                    <i class="fa-brands fa-google"></i>
                     Continue with Google
-                </button>
-                <button class="auth-btn apple">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple">
+                </div>
+                <div class="social-btn apple">
+                    <i class="fa-brands fa-apple"></i>
                     Continue with Apple
-                </button>
-                <div class="divider"><span>or</span></div>
-                <input type="text" placeholder="Email or Phone number" class="minimal-input">
-                <button class="auth-btn primary" id="continue-btn">Continue</button>
+                </div>
+            </div>
+
+            <div class="divider">or</div>
+
+            <div class="auth-form">
+                <input type="text" class="auth-input" placeholder="Email or Phone number">
+                <button id="continue-btn" class="primary-btn">Continue</button>
             </div>
         </div>
     </div>
@@ -35,12 +44,12 @@
     <!-- Main Screen (Hidden initially) -->
     <div id="main-screen" class="screen" style="display: none;">
         <div class="top-nav">
-            <div class="logo-small">ORCHESTRA</div>
+            <div class="logo-small">Dash</div>
             <div class="user-profile">JD</div>
         </div>
 
         <div class="command-container">
-            <div class="hero-text">How can ORCHESTRA help you today?</div>
+            <div class="hero-text">What's the mission?</div>
             
             <div class="thread-wrapper" id="message-thread">
                 <!-- Messages will appear here -->

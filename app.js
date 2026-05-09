@@ -1,112 +1,160 @@
-document.getElementById('continue-btn').addEventListener('click', () => {
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
-});
+// ═══════════════════════════════════════════════
+// DASH AI — Dynamic Space Backdrop + Agent Logic
+// ═══════════════════════════════════════════════
 
-function addMessage(text, side) {
-    const thread = document.getElementById('message-thread');
-    
-    // Remove typing indicator if exists
-    const existingTyping = document.querySelector('.typing-indicator');
-    if (existingTyping) existingTyping.remove();
+const brandIcons = [
+    'fa-brands fa-amazon',
+    'fa-brands fa-gitlab',
+    'fa-brands fa-apple',
+    'fa-brands fa-google',
+    'fa-brands fa-paypal',
+    'fa-brands fa-stripe',
+    'fa-brands fa-shopify',
+    'fa-brands fa-airbnb',
+    'fa-brands fa-twitter',
+    'fa-brands fa-facebook',
+    'fa-brands fa-spotify',
+    'fa-brands fa-github',
+    'fa-brands fa-slack',
+    'fa-brands fa-dropbox',
+    'fa-brands fa-figma'
+];
 
-    const msg = document.createElement('div');
-    msg.className = `message-bubble ${side}`;
-    msg.textContent = text;
-    thread.appendChild(msg);
-    thread.scrollTop = thread.scrollHeight;
-}
+const floatClasses = ['float-a', 'float-b', 'float-c', 'float-d'];
 
-function showTyping() {
-    const thread = document.getElementById('message-thread');
-    const typing = document.createElement('div');
-    typing.className = 'message-bubble agent typing-indicator';
-    typing.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-    thread.appendChild(typing);
-    thread.scrollTop = thread.scrollHeight;
-}
+function initSpaceBackdrop() {
+    const container = document.getElementById('space-backdrop');
+    if (!container) return;
 
-document.getElementById('execute-btn').addEventListener('click', () => {
-    const input = document.getElementById('command-input');
-    const query = input.value.trim();
-    if (!query) return;
+    // Shuffle and pick a random subset each load
+    const shuffled = [...brandIcons].sort(() => Math.random() - 0.5);
+    const count = 12 + Math.floor(Math.random() * 6); // 12–17 icons
 
-    addMessage(query, 'user');
-    input.value = '';
-    
-    if (threadState === 'initial') {
-        handleClarification(query);
-    } else if (threadState === 'clarified') {
-        handleConfirmation(query);
+    for (let i = 0; i < count; i++) {
+        const el = document.createElement('i');
+        const iconClass = shuffled[i % shuffled.length];
+        const floatClass = floatClasses[Math.floor(Math.random() * floatClasses.length)];
+
+        el.className = `${iconClass} floating-icon ${floatClass}`;
+
+        // Scatter across the full viewport
+        el.style.top = `${5 + Math.random() * 90}%`;
+        el.style.left = `${5 + Math.random() * 90}%`;
+
+        // Varied sizes for depth
+        const size = 50 + Math.random() * 120;
+        el.style.fontSize = `${size}px`;
+
+        // Stagger start so they don't all move in sync
+        el.style.animationDelay = `${-(Math.random() * 30).toFixed(1)}s`;
+
+        // Slightly varied opacity for parallax depth
+        el.style.color = `rgba(255,255,255,${(0.04 + Math.random() * 0.08).toFixed(3)})`;
+
+        container.appendChild(el);
     }
-});
-
-function handleClarification(query) {
-    threadState = 'processing';
-    showTyping();
-    
-    setTimeout(() => {
-        if (query.includes('trinidad') || query.includes('book')) {
-            addMessage("Gemini: I see you want to send a book to Trinidad. My Elastic Search engine indicates that while Amazon is available, 'Aeropost' or 'TriniBox' offer 30% faster delivery and lower customs rates for this region. Would you like to use your Amazon account or should I create an optimized account on TriniBox for you?", 'agent');
-            threadState = 'platform_choice';
-        } else if (query.includes('flight') || query.includes('tokyo')) {
-            addMessage("Gemini: Searching for optimized flight paths to Tokyo. I've found a deal on 'Expedia' for $842, but 'Skiplagged' has a hidden-city fare for $610. Which platform would you like me to execute the booking on?", 'agent');
-            threadState = 'platform_choice';
-        } else {
-            addMessage("Gemini: I've analyzed your request. To fulfill this mission with zero-failure, I'm spinning up a specialized subagent to deconstruct the relevant web service. Please stand by while I map the DOM...", 'agent');
-            setTimeout(() => {
-                addMessage("Subagent 01-WK: Target identified. Requesting clarification on your preferred budget constraints.", 'agent');
-                threadState = 'clarified';
-            }, 2000);
-        }
-    }, 1500);
 }
 
-function handleConfirmation(query) {
-    threadState = 'processing';
-    const useAmazon = query.toLowerCase().includes('amazon');
-    const platform = useAmazon ? 'Amazon Global' : 'TriniBox (Optimized)';
-    
-    setTimeout(() => {
-        const thread = document.getElementById('message-thread');
-        const card = document.createElement('div');
-        card.className = 'confirmation-card';
-        card.innerHTML = `
-            <h4>MISSION PLAN: LOGISTICS-TRINIDAD</h4>
-            <div class="plan-item"><span class="plan-icon">◈</span> ${useAmazon ? 'Accessing Amazon Vault' : 'Provisioning New TriniBox Account'}</div>
-            <div class="plan-item"><span class="plan-icon">◈</span> Sourcing 'The Alchemist' via ${platform}</div>
-            <div class="plan-item"><span class="plan-icon">◈</span> Auto-calculating Customs & Duties (Fivetran Pipeline)</div>
-            <button class="auth-btn primary" id="final-confirm" style="margin-top: 10px;">Execute Mission</button>
-        `;
-        thread.appendChild(card);
-        thread.scrollTop = thread.scrollHeight;
+// ═══════════════════════════════════
+// AUTH → MAIN TRANSITION
+// ═══════════════════════════════════
 
-        document.getElementById('final-confirm').addEventListener('click', () => {
-            card.innerHTML = `<div class="status-indicator" style="margin: 0;"><div class="spinner"></div><span>ORCHESTRA is executing background form-filling on ${platform}...</span></div>`;
-            setTimeout(() => {
-                card.innerHTML = `<span style="color: #0071e3; font-weight: 600;">✓ Mission Complete.</span> Account created/accessed and items shipped. Syncing results to MongoDB.`;
-            }, 5000);
+function enterDash() {
+    const auth = document.getElementById('auth-screen');
+    const main = document.getElementById('main-screen');
+
+    auth.style.transition = 'opacity 0.4s ease';
+    auth.style.opacity = '0';
+
+    setTimeout(() => {
+        auth.style.display = 'none';
+        main.style.display = 'flex';
+        main.style.opacity = '0';
+        requestAnimationFrame(() => {
+            main.style.transition = 'opacity 0.4s ease';
+            main.style.opacity = '1';
         });
-    }, 1500);
+    }, 400);
 }
 
-document.getElementById('command-input').addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
+document.getElementById('continue-btn').addEventListener('click', enterDash);
+
+// Enter key on email input
+document.querySelector('.auth-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); enterDash(); }
 });
 
-document.getElementById('command-input').addEventListener('keydown', (e) => {
+// ═══════════════════════════════════
+// COMMAND EXECUTION
+// ═══════════════════════════════════
+
+const textarea = document.getElementById('command-input');
+const thread = document.getElementById('message-thread');
+const statusArea = document.getElementById('status-area');
+const statusText = document.getElementById('status-text');
+
+// Auto-expand textarea
+textarea.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+});
+
+textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        document.getElementById('execute-btn').click();
+        executeCommand();
     }
 });
 
-// Quick action chips
-document.querySelectorAll('.action-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        const text = chip.textContent.split(' ').slice(1).join(' ');
-        document.getElementById('command-input').value = `I want to ${text.toLowerCase()}...`;
-        document.getElementById('command-input').focus();
-    });
-});
+document.getElementById('execute-btn').addEventListener('click', executeCommand);
+
+function addMessage(text, type) {
+    const msg = document.createElement('div');
+    msg.className = `message ${type}`;
+    msg.innerHTML = text;
+    thread.appendChild(msg);
+    thread.scrollTop = thread.scrollHeight;
+    return msg;
+}
+
+function executeCommand() {
+    const raw = textarea.value.trim();
+    if (!raw) return;
+
+    addMessage(raw, 'user');
+    textarea.value = '';
+    textarea.style.height = 'auto';
+
+    // Show status
+    statusArea.style.display = 'flex';
+    statusText.textContent = 'Analyzing mission parameters…';
+
+    setTimeout(() => {
+        statusText.textContent = 'Orchestrating sub-agents…';
+
+        setTimeout(() => {
+            statusArea.style.display = 'none';
+
+            const lower = raw.toLowerCase();
+            let response;
+
+            if (lower.includes('flight') || lower.includes('travel') || lower.includes('book')) {
+                response = `<strong>Mission locked.</strong> Deploying browser agents to Expedia, Skiplagged, and Google Flights. I'll surface the best options and confirm before booking.`;
+            } else if (lower.includes('ship') || lower.includes('send') || lower.includes('gift')) {
+                response = `<strong>Logistics pipeline activated.</strong> Evaluating TriniBox, Amazon Global, and FedEx rates for your destination. Stand by for quotes.`;
+            } else if (lower.includes('register') || lower.includes('sign up') || lower.includes('account')) {
+                response = `<strong>Provisioning initiated.</strong> I'll handle the registration flow autonomously. If a CAPTCHA appears, I'll hand control to you.`;
+            } else {
+                response = `<strong>Copy.</strong> Breaking down the task now. I'll report back with a plan before executing.`;
+            }
+
+            addMessage(response, 'agent');
+        }, 1800);
+    }, 1200);
+}
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', initSpaceBackdrop);

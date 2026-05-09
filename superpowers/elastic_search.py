@@ -2,7 +2,7 @@ from mcp_client import MCPClient
 
 class ElasticSearch:
     """
-    Dash Agent-1: Elastic Action Search
+    Dash-1: Elastic Action Search
     Powers the millisecond retrieval of previously solved DOM structures.
     """
     def __init__(self):

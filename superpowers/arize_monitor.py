@@ -2,7 +2,7 @@ from mcp_client import MCPClient
 
 class ArizeMonitor:
     """
-    Dash Agent-1: Arize Reasoning Observability
+    Dash-1: Arize Reasoning Observability
     Monitors the Gemini reasoning traces and provides guardrail verification.
     """
     def __init__(self):
