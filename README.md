@@ -1,129 +1,136 @@
-# Dash Agent
+<p align="center">
+  <img src="docs/images/login-screen.png" alt="Dash Agent — Login" width="720" />
+</p>
 
-Dash Agent is a minimalist action agent for real-world browser missions. The user sees a clean ChatGPT-style command surface; the orchestration layer handles discovery, planning, form filling, verification checkpoints, and partner sync in the background.
+<h1 align="center">Dash Agent</h1>
 
-MongoDB is the first stop in the lifecycle. Dash registers the user into a Mission Vault, records consented context sources, and then Dash-1 routes work to lightweight sub-agents for gifts, flights, account creation, social context, shopping, and DevOps sync.
+<p align="center">
+  <strong>Autonomous browser missions. Human checkpoints. One clean interface.</strong>
+</p>
 
-## Hackathon Track
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#partner-integrations">Partners</a> •
+  <a href="#safety">Safety</a> •
+  <a href="#license">License</a>
+</p>
 
-The primary submission track is **MongoDB**.
+<p align="center">
+  <img src="https://img.shields.io/badge/track-MongoDB-00ED64?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB Track" />
+  <img src="https://img.shields.io/badge/engine-Gemini_3-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini 3" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License" />
+  <img src="https://img.shields.io/badge/python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+" />
+</p>
 
-Core stack:
+---
 
-- **Gemini 3:** reasoning, planning, and sub-agent orchestration.
-- **MongoDB:** Mission Vault for user registration, consent, account context, and mission memory.
-- **Elastic:** Action Search for recalling prior DOM and task patterns.
-- **Arize:** reasoning observability, guardrails, and mission health.
-- **Fivetran:** mission event pipeline for analytics and long-running optimization.
+## What Is Dash?
 
-First demo mission:
+Dash is an AI action agent that **does things on the web for you** — not just answers questions. Give it a mission, and it opens live websites, fills forms, handles logistics, and pauses only when a human checkpoint (CAPTCHA, MFA, payment) requires your input.
 
-> Register a user-owned GitLab account, stop for CAPTCHA/email verification when required, then store the mission state in MongoDB and stream the result through the sponsor pipeline.
+You see a clean chat interface. Behind it, a master orchestrator delegates to lightweight sub-agents, stores durable context in MongoDB, recalls DOM patterns from Elastic, observes reasoning with Arize, and streams mission data through Fivetran.
 
-Follow-up mission:
+<p align="center">
+  <img src="docs/images/command-center.png" alt="Dash Agent — Command Center" width="720" />
+</p>
 
-> Ask whether the user wants to connect GitHub, then sync selected GitHub repositories into GitLab through a consented connection flow.
+---
 
-This aligns with the challenge because Dash does not only answer questions. It opens a live service, maps the page by accessible form semantics, performs controlled browser actions, verifies the resulting state, stores durable context in MongoDB, recalls patterns with Elastic, observes reasoning with Arize, and streams mission data through Fivetran.
+## How It Works
 
-## Sponsor Integrations
+Every mission follows a five-phase lifecycle:
 
-Dash now shows all five sponsor roles in the mission API:
+<p align="center">
+  <img src="docs/images/mission-flow.png" alt="Mission Lifecycle" width="720" />
+</p>
 
-- **MongoDB:** registers users, stores consented mission state, account context, and profile references.
-- **Elastic:** recalls prior DOM/action patterns for resilient form mapping.
-- **Arize:** logs reasoning traces, guardrail decisions, and mission health.
-- **Fivetran:** streams mission events such as registration checkpoints, account resolution, GitHub sync, and gift scouting into analytics.
-- **GitLab:** first real-world target service and optional DevOps sync destination.
+| Phase | What Happens |
+|-------|-------------|
+| **Discover** | Navigate to the target page, read the live DOM structure |
+| **Plan** | Map form fields by accessible labels, ARIA roles, and semantic types |
+| **Form Fill** | Type into visible, focused fields with real browser events — secrets stay masked |
+| **Verify** | Detect CAPTCHA, MFA, or email gates → **pause for human completion** |
+| **Sync** | Store mission state in MongoDB, sync outputs through GitLab/Fivetran |
 
-## Master/Sub-Agent Architecture
+### Demo Mission: GitLab Registration
 
-Dash is designed so one master agent can route many consumer missions to focused sub-agents:
+```
+User → "Register my GitLab account and provision my mission repo."
+```
 
-- `Identity Registrar`: creates the MongoDB Mission Vault profile.
-- `Context Seeder`: attaches approved Google, Apple, GitHub, social, travel, shopping, and manual preference sources.
-- `Mission Router`: chooses the lightest useful worker agents for each request.
-- `Consent Broker`: confirms what user data can be used.
-- `Social Context Scout`: reads public links, user exports, or user-approved browser sessions.
-- `Preference Inference`: turns allowed context into interests, constraints, and confidence.
-- `Product Scout`: searches merchants and marketplaces.
-- `Price And Logistics`: compares landed cost, shipping speed, and seller reliability.
-- `Gift Ranker`: scores fit, price, novelty, and delivery confidence.
-- `Checkout Prep`: prepares the cart and stops before payment.
-- `Connection Broker`: asks for Google, Apple, GitHub, or social context through OAuth, browser handoff, uploads, public links, or a questionnaire.
-- `Account Resolver`: checks whether the user already has an account for a service, asks before creating one, and resumes after human verification.
-- `Text DOM Deconstructor`: uses visible text, accessible names, ARIA roles, and semantic input types instead of brittle CSS selectors, screenshots, or user-visible JavaScript snippets.
+1. Dash opens `gitlab.com/users/sign_up` with Playwright.
+2. Maps fields by label: First Name, Last Name, Username, Email, Password.
+3. Fills each field with real keyboard events. Secrets are masked in all logs.
+4. Clicks "Continue" and checks for CAPTCHA/email verification.
+5. **Pauses** at any human gate. You complete it, Dash resumes.
+6. After verification → creates a GitLab mission repo and syncs the script via MCP.
 
-For social networks, Dash does **not** store raw Instagram or Facebook passwords. A user can connect through a supported OAuth flow, complete a browser session handoff, paste public links, upload an export, or answer a short fallback questionnaire.
+---
 
-For Google, Apple, and GitHub, Dash asks the user to connect an account or provide an approved token/export. It does not ask for the account password.
+## Architecture
 
-For commerce flows such as Amazon, Dash first checks the Mission Vault for approved account context. Existing credentials are represented as authorized vault or session references, never raw values in chat or logs. If no account exists and the user approves account creation, Dash fills the registration flow and pauses for CAPTCHA, MFA, email, or phone verification. It does not bypass those gates.
+<p align="center">
+  <img src="docs/images/architecture.png" alt="Dash Agent Architecture" width="720" />
+</p>
 
-See `docs/DOM_DECONSTRUCTION.md` for the text-only form mapping protocol.
+### Master/Sub-Agent Model
 
-Example consumer mission:
+**Dash-1** is the master orchestrator. It classifies each request and spawns only the sub-agents needed:
 
-> Buy a gift for my friend using allowed context, best price, and delivery confidence.
+| Sub-Agent | Role |
+|-----------|------|
+| **Identity Registrar** | Creates the user profile in MongoDB Mission Vault |
+| **Context Seeder** | Attaches Google, Apple, GitHub, social, or manual preference sources |
+| **Account Resolver** | Checks existing accounts before creating new ones |
+| **DOM Deconstructor** | Maps forms by text, ARIA roles, and semantic input types |
+| **Gift Scout** | Finds, ranks, and prepares gift purchases with consent-first social context |
+| **Connection Broker** | Handles OAuth, session handoff, or vault-token flows for external services |
+| **Checkout Prep** | Builds the cart, stops before payment for explicit approval |
 
-If the user has no social context available, Dash asks for age range, relationship, occasion, budget, interests, and shipping destination.
+---
 
-## Current Demo Flow
+## Partner Integrations
 
-1. The user signs in with email, Google, or Apple.
-2. Dash registers the user and consent metadata in MongoDB Mission Vault.
-3. The user enters: `Register my GitLab account and provision my mission repo.`
-4. Dash opens GitLab registration with Playwright.
-5. Dash fills first name, last name, username, email, and password using visible focused fields and browser events.
-6. Dash halts at CAPTCHA, MFA, or email verification.
-7. After the human checkpoint, Dash resumes and syncs the mission script through GitLab MCP.
+Dash integrates five hackathon partner tracks through a unified MCP (Model Context Protocol) bridge:
 
-## Safety
+| Partner | Role in Dash | Module |
+|---------|-------------|--------|
+| 🟢 **MongoDB** | **Mission Vault** — user registration, consent, account context, and durable mission memory | `superpowers/mongo_vault.py` |
+| 🟡 **Elastic** | **Action Search** — millisecond recall of previously solved DOM patterns | `superpowers/elastic_search.py` |
+| 🟣 **Arize** | **Reasoning Observability** — traces, guardrails, and mission health monitoring | `superpowers/arize_monitor.py` |
+| 🔵 **Fivetran** | **Data Pipeline** — streams mission events into analytics | `superpowers/fivetran_pipeline.py` |
+| 🟠 **GitLab** | **Mission Sync** — provisions repos and versions mission scripts | `superpowers/gitlab_sync.py` |
 
-Dash does not bypass CAPTCHA, MFA, email verification, rate limits, or terms gates. Secrets are never printed; logs mask email, password, tokens, and credentials.
+All partner calls go through `superpowers/mcp_client.py`, which defaults to **dry-run mode** for safe local testing.
 
-## Run The UI
+---
 
-The frontend is static:
+## Quick Start
+
+### 1. Run the UI
+
+The frontend is a static HTML page — no build step required:
 
 ```powershell
 start index.html
 ```
 
-## Run The Backend
+### 2. Run the Backend
 
 ```powershell
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
 
-By default, partner MCP calls run in dry-run mode so the demo is safe to test:
+By default, partner MCP calls run in **dry-run mode**:
 
 ```powershell
 $env:DASH_MCP_MODE="dry-run"
 ```
 
-To connect a live MCP gateway, set:
-
-```powershell
-$env:DASH_MCP_MODE="live"
-$env:DASH_MCP_GITLAB_HTTP_URL="http://localhost:PORT/mcp"
-$env:DASH_MCP_GITLAB_TOKEN="..."
-```
-
-Useful local checks:
-
-```powershell
-Invoke-RestMethod http://localhost:8000/architecture
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/users/register -ContentType "application/json" -Body '{"user_id":"demo-user","primary_email":"demo@example.com","auth_provider":"email","authorized_sources":["manual"],"mission_goals":["gitlab-registration","gift-scout","travel"]}'
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/context/intake -ContentType "application/json" -Body '{"user_id":"demo-user"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/account-resolver -ContentType "application/json" -Body '{"user_id":"demo-user","service_name":"Amazon","service_url":"https://www.amazon.com","account_creation_allowed":false}'
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/gift-scout -ContentType "application/json" -Body '{"user_id":"demo-user"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/gitlab-registration -ContentType "application/json" -Body '{"user_id":"demo-user","verification_completed":false}'
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/github-sync -ContentType "application/json" -Body '{"user_id":"demo-user","github_connection_ready":false}'
-```
-
-## Run The GitLab Browser Mission
+### 3. Run the GitLab Browser Mission
 
 ```powershell
 python -m playwright install chromium
@@ -137,10 +144,92 @@ $env:DASH_GITLAB_PASSWORD="your-password"
 python missions\gitlab_registration.py
 ```
 
-## Repository Checklist
+### 4. Test the API
 
-- Public repository
-- `LICENSE` file at repository root
-- Hosted project URL
-- Three-minute demo video
-- MongoDB partner track selected on Devpost
+```powershell
+# Health check
+Invoke-RestMethod http://localhost:8000/health
+
+# Register a user
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/users/register `
+  -ContentType "application/json" `
+  -Body '{"user_id":"demo","primary_email":"demo@example.com","auth_provider":"email","authorized_sources":["manual"],"mission_goals":["gitlab-registration"]}'
+
+# View the architecture
+Invoke-RestMethod http://localhost:8000/architecture
+```
+
+<details>
+<summary><strong>All API Endpoints</strong></summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/architecture` | Full sub-agent architecture map |
+| `POST` | `/users/register` | Register user in Mission Vault |
+| `POST` | `/context/intake` | Connect data context sources |
+| `POST` | `/missions/gitlab-registration` | Run GitLab registration mission |
+| `POST` | `/missions/github-sync` | Sync GitHub repos → GitLab |
+| `POST` | `/missions/gift-scout` | Gift recommendation mission |
+| `POST` | `/missions/account-resolver` | Resolve/create service accounts |
+
+</details>
+
+---
+
+## Project Structure
+
+```
+dash-agent/
+├── index.html                  # Minimalist chat UI
+├── app.js                      # Frontend mission routing and status animations
+├── style.css                   # Dark glassmorphism design system
+├── backend/
+│   ├── main.py                 # FastAPI mission orchestrator (8 endpoints)
+│   └── orchestrator.py         # Master/sub-agent planner
+├── superpowers/
+│   ├── mcp_client.py           # MCP JSON-RPC bridge (dry-run + live)
+│   ├── mongo_vault.py          # MongoDB Mission Vault integration
+│   ├── elastic_search.py       # Elastic DOM pattern recall
+│   ├── arize_monitor.py        # Arize reasoning observability
+│   ├── fivetran_pipeline.py    # Fivetran event streaming
+│   └── gitlab_sync.py          # GitLab repo provisioning
+├── missions/
+│   └── gitlab_registration.py  # Playwright browser mission script
+├── docs/
+│   ├── DOM_DECONSTRUCTION.md   # Text-only form mapping protocol
+│   └── MASTER_PROMPT.md        # Agent system prompt reference
+├── requirements.txt            # Python dependencies
+└── LICENSE                     # MIT
+```
+
+---
+
+## Safety
+
+| Guardrail | How It Works |
+|-----------|-------------|
+| **CAPTCHA / MFA / Email** | Dash detects these gates and **pauses**. It never bypasses them. |
+| **Credential Isolation** | Passwords, tokens, and secrets are never printed to logs or chat. The MCP client redacts sensitive fields automatically. |
+| **Payment Gate** | Dash prepares carts but **stops before checkout** for explicit user confirmation. |
+| **Consent First** | Context sources (Google, Apple, social) require user approval. No raw social passwords are stored. |
+| **DOM by Text** | Forms are mapped by visible text, ARIA roles, and semantic types — not brittle CSS selectors. |
+
+---
+
+## Consumer Missions
+
+Beyond GitLab registration, Dash supports multi-vertical consumer missions:
+
+- 🎁 **Gift Scout** — Find gifts using consented friend context, rank by fit/price/delivery, stop before purchase.
+- ✈️ **Travel** — Compare flights and stays, handle autocomplete and calendar widgets.
+- 🛒 **Shopping** — Resolve accounts, apply international shipping filters, fill multi-field address forms.
+- 🔗 **GitHub Sync** — Connect GitHub via OAuth or token, sync selected repos into GitLab.
+- 📋 **Account Resolver** — Check for existing accounts, create new ones with form automation, pause at verification.
+
+---
+
+## License
+
+[MIT](LICENSE) — © 2026 Dash Agent contributors
+
