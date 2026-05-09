@@ -1,6 +1,50 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.lucas
+.cache
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.coverage
+.coverage.*
+.hypothesis/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# IDEs
 .vscode/
-node_modules/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Project Specific
+node_modules/
+dist/
+build/
+*.log
+api/__pycache__/
+backend/__pycache__/
+superpowers/__pycache__/
+missions/__pycache__/
+render.yaml.bak
