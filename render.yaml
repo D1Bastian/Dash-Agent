@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: dash-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DASH_MCP_MODE
+        value: live
+      - key: MONGO_URI
+        sync: false
+        placeholder: "mongodb+srv://..."
+      - key: ELASTIC_CLOUD_ID
+        sync: false
+        placeholder: "Your Elastic Cloud ID"
+      - key: ELASTIC_API_KEY
+        sync: false
+        placeholder: "Your Elastic API Key"
+      - key: ARIZE_API_KEY
+        sync: false
+        placeholder: "Your Arize API Key"
+      - key: ARIZE_SPACE_ID
+        sync: false
+        placeholder: "Your Arize Space ID"
+      - key: FIVETRAN_API_KEY
+        sync: false
+      - key: FIVETRAN_API_SECRET
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.3
