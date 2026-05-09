@@ -10,14 +10,14 @@ Dash registers the user into MongoDB Mission Vault before running missions. The 
 
 ## Active Mission
 
-`gitlab-registration`
+`mission-scout`
 
-1. Discover the live GitLab registration surface.
+1. Discover the target action surface.
 2. Plan the field mapping from secure user profile data.
 3. Fill the form through visible, focused browser controls.
 4. Stop for CAPTCHA, MFA, or email verification.
-5. Resume after verification and sync the mission script through GitLab MCP.
-6. Ask whether the user wants to connect GitHub and sync selected repositories.
+5. Resume after verification and sync the mission state.
+6. Ask whether the user wants to connect other services and sync data.
 
 ## Demo Promise
 

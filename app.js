@@ -49,46 +49,7 @@ const missionProfiles = {
             '<strong>Next checkpoint.</strong> Once GitHub is connected, I will enumerate repositories, ask which ones to sync, then create matching GitLab projects through the GitLab partner workflow.'
         ]
     },
-    account: {
-        matcher: (text) => (text.includes('amazon') || text.includes('account')) && (text.includes('make') || text.includes('create') || text.includes('sign up') || text.includes('login') || text.includes('buy')),
-        command: 'Resolve whether I have an Amazon account, create one if I approve, and continue the shopping mission.',
-        apiPath: '/missions/account-resolver',
-        apiBody: {
-            user_id: 'demo-user',
-            service_name: 'Amazon',
-            service_url: 'https://www.amazon.com',
-            account_creation_allowed: false,
-            required_action: 'shopping'
-        },
-        statuses: [
-            'Checking the Mission Vault for account context...',
-            'Preparing text-only DOM deconstruction...',
-            'Mapping login or registration actions...',
-            'Waiting for account connection or creation approval...'
-        ],
-        responses: [
-            '<strong>Account Resolver ready.</strong> If you already have the account, I can use a session handoff or approved vault context. If not, I can create one after you approve.',
-            '<strong>Verification guardrail.</strong> I detect CAPTCHA, MFA, and email checks, pause for you, then resume when the page state changes.'
-        ]
-    },
-    gitlab: {
-        matcher: (text) => text.includes('gitlab') || text.includes('register') || text.includes('sign up') || text.includes('account'),
-        command: 'Register my GitLab account, stop for human verification if needed, then provision the mission repository.',
-        apiPath: '/missions/gitlab-registration',
-        apiBody: { user_id: 'demo-user', verification_completed: false },
-        statuses: [
-            'Opening GitLab registration...',
-            'Reading the live form structure...',
-            'Mapping profile fields from the Mission Vault...',
-            'Filling visible fields with browser events...',
-            'Submitting registration and checking state...',
-            'Standing by for CAPTCHA or email verification...'
-        ],
-        responses: [
-            '<strong>GitLab registration mission started.</strong> I found the current sign-up fields and mapped them to first name, last name, username, email, and password. Secrets stay masked.',
-            '<strong>Human checkpoint ready.</strong> If GitLab presents CAPTCHA, MFA, or email confirmation, finish that prompt in the browser. After verification, I resume with GitLab MCP provisioning and mission-script sync.'
-        ]
-    },
+
     travel: {
         matcher: (text) => text.includes('flight') || text.includes('travel') || text.includes('book'),
         command: 'Find and compare travel options for my next trip.',
@@ -186,7 +147,7 @@ async function registerUserContext(authProvider = 'email', authorizedSources = [
                 primary_email: primaryEmail,
                 auth_provider: authProvider,
                 authorized_sources: [...sourceSet],
-                mission_goals: ['gitlab-registration', 'gift-scout', 'travel', 'account-resolver']
+                mission_goals: ['gift-scout', 'travel', 'account-resolver']
             })
         });
 

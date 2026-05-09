@@ -54,18 +54,17 @@ Every mission follows a five-phase lifecycle:
 | **Verify** | Detect CAPTCHA, MFA, or email gates → **pause for human completion** |
 | **Sync** | Store mission state in MongoDB, sync outputs through GitLab/Fivetran |
 
-### Demo Mission: GitLab Registration
+### Demo Mission: Account Provisioning
 
 ```
-User → "Register my GitLab account and provision my mission repo."
+User → "Set up my mission workspace and provision my context."
 ```
 
-1. Dash opens `gitlab.com/users/sign_up` with Playwright.
-2. Maps fields by label: First Name, Last Name, Username, Email, Password.
-3. Fills each field with real keyboard events. Secrets are masked in all logs.
-4. Clicks "Continue" and checks for CAPTCHA/email verification.
-5. **Pauses** at any human gate. You complete it, Dash resumes.
-6. After verification → creates a GitLab mission repo and syncs the script via MCP.
+1. Dash identifies the required services from the Mission Vault.
+2. Maps fields by label and semantic types.
+3. Fills fields with real keyboard events. Secrets are masked.
+4. Pauses at any human gate (CAPTCHA, MFA).
+5. After verification → synchronizes the mission state to the vault.
 
 ---
 
@@ -101,7 +100,7 @@ Dash integrates five hackathon partner tracks through a unified MCP (Model Conte
 | 🟡 **Elastic** | **Action Search** — millisecond recall of previously solved DOM patterns | `superpowers/elastic_search.py` |
 | 🟣 **Arize** | **Reasoning Observability** — traces, guardrails, and mission health monitoring | `superpowers/arize_monitor.py` |
 | 🔵 **Fivetran** | **Data Pipeline** — streams mission events into analytics | `superpowers/fivetran_pipeline.py` |
-| 🟠 **GitLab** | **Mission Sync** — provisions repos and versions mission scripts | `superpowers/gitlab_sync.py` |
+| 🟠 **Partner X** | **Future Sync** — placeholder for additional partner tracks | `superpowers/mission_sync.py` |
 
 All partner calls go through `superpowers/mcp_client.py`, which defaults to **dry-run mode** for safe local testing.
 
