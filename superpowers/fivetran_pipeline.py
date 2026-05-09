@@ -1,4 +1,4 @@
-from mcp_client import MCPClient
+from .mcp_client import MCPClient
 
 class FivetranPipeline:
     """

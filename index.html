@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dash AI | Autonomous Intelligence</title>
+    <title>Dash Agent | Autonomous GitLab Mission</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,17 +19,17 @@
         </div>
         <div class="auth-container">
             <h1 class="minimal-logo">Dash</h1>
-            <p class="subtitle">The Autonomous Intelligence Layer</p>
+            <p class="subtitle">Mission Vault, autonomous action, human checkpoints</p>
             
             <div class="social-btns">
-                <div class="social-btn">
+                <button class="social-btn" data-context-source="google">
                     <i class="fa-brands fa-google"></i>
                     Continue with Google
-                </div>
-                <div class="social-btn apple">
+                </button>
+                <button class="social-btn apple" data-context-source="apple">
                     <i class="fa-brands fa-apple"></i>
                     Continue with Apple
-                </div>
+                </button>
             </div>
 
             <div class="divider">or</div>
@@ -56,8 +56,8 @@
             </div>
 
             <div class="input-wrapper">
-                <textarea id="command-input" placeholder="Find me the cheapest flight to Tokyo..." rows="1"></textarea>
-                <button id="execute-btn" class="execute-btn">
+                <textarea id="command-input" placeholder="Register my GitLab account and provision my mission repo..." rows="1"></textarea>
+                <button id="execute-btn" class="execute-btn" aria-label="Execute mission">
                     <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M2.01 21L23 12L2.01 3L2 10l15 2l-15 2z"/></svg>
                 </button>
             </div>
@@ -68,9 +68,22 @@
             </div>
 
             <div class="quick-actions">
-                <button class="action-chip">✈️ Book Travel</button>
-                <button class="action-chip">🎁 Ship Gift</button>
-                <button class="action-chip">🛠️ Provision Dev Env</button>
+                <button class="action-chip" data-command="Register my GitLab account, stop for human verification if needed, then provision the mission repository.">
+                    <i class="fa-brands fa-gitlab"></i>
+                    GitLab Registration
+                </button>
+                <button class="action-chip" data-command="Find and compare travel options for my next trip.">
+                    <i class="fa-solid fa-plane"></i>
+                    Book Travel
+                </button>
+                <button class="action-chip" data-command="Buy a gift for my friend using allowed context, best price, and delivery confidence.">
+                    <i class="fa-solid fa-gift"></i>
+                    Buy Gift
+                </button>
+                <button class="action-chip" data-command="Resolve whether I have an Amazon account, create one if I approve, and continue the shopping mission.">
+                    <i class="fa-brands fa-amazon"></i>
+                    Account Resolver
+                </button>
             </div>
         </div>
     </div>

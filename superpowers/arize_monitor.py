@@ -1,4 +1,4 @@
-from mcp_client import MCPClient
+from .mcp_client import MCPClient
 
 class ArizeMonitor:
     """
@@ -11,7 +11,7 @@ class ArizeMonitor:
     async def log_reasoning_trace(self, mission_id, reasoning_steps):
         """Logs the agent's multi-step plan to Arize for observability."""
         return await self.client.call_tool("log_trace", {
-            "model_id": "gemini-1.5-pro",
+            "model_id": "gemini-3",
             "mission_id": mission_id,
             "trace": reasoning_steps
         })
