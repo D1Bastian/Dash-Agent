@@ -16,10 +16,13 @@ from superpowers.mongo_vault import MongoVault
 from backend.orchestrator import MasterOrchestrator, serialize_agents
 
 
+from backend.auth import router as auth_router
+
 ROOT = Path(__file__).resolve().parents[1]
 MISSION_SCRIPT = ROOT / "missions" / "gitlab_registration.py"
 
 app = FastAPI(title="Dash Agent Mission Orchestrator")
+app.include_router(auth_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # In production, restrict this to the frontend domain
@@ -43,9 +46,6 @@ async def add_security_headers(request, call_next):
 @app.get("/")
 async def serve_index():
     return FileResponse(ROOT / "index.html")
-
-
-app.mount("/", StaticFiles(directory=str(ROOT), html=False), name="static-root")
 
 
 class MissionRequest(BaseModel):
@@ -201,16 +201,71 @@ async def register_user(request: UserRegistrationRequest) -> dict[str, Any]:
     }
 
 
-@app.post("/execute-mission")
-async def execute_mission(request: MissionRequest) -> dict[str, Any]:
-    # Default to a generic reasoning mission using Google AI Builder
+@app.post("/missions/travel-concierge")
+async def travel_concierge_mission(request: dict) -> dict:
+    """
+    Spawns 3 parallel Travel Scout sub-agents: flights, hotels, Airbnb.
+    Returns synthesised best-value package combinations.
+    """
+    user_id = request.get("user_id", "demo-user")
+    mission_id = f"travel-{user_id}"
+    vault = MongoVault()
+    monitor = ArizeMonitor()
+    search = ElasticSearch()
+    pipeline = FivetranPipeline()
+
+    await monitor.log_reasoning_trace(mission_id, [
+        "Spawn Scout-1 for flights (Expedia, Google Flights).",
+        "Spawn Scout-2 for hotels (Booking.com, Hotels.com).",
+        "Spawn Scout-3 for Airbnb.",
+        "Compare real-time prices across cheapest date windows.",
+        "Synthesise best package combos using vault travel prefs.",
+        "Stop before booking for explicit user confirmation.",
+    ])
+    flight_pattern = await search.find_dom_pattern("expedia", "flight_search_results")
+    hotel_pattern  = await search.find_dom_pattern("booking.com", "hotel_search_results")
+    await vault.store_mission_state(mission_id, {"status": "scouts_running", **request})
+    await pipeline.stream_mission_data(mission_id, {"mission": "travel-concierge", "scouts": 3})
+
     return {
-        "status": "success",
-        "mission_id": f"mission-{request.user_id}",
-        "brain": "Google Cloud Agent Builder",
-        "summary": f"Analyzing mission: {request.query}",
-        "next_action": "Spawning relevant sub-agents for the requested task."
+        "status": "scouts_running",
+        "mission_id": mission_id,
+        "scouts": [
+            {"id": "scout-1", "target": "flights",  "sources": ["Expedia", "Google Flights"]},
+            {"id": "scout-2", "target": "hotels",   "sources": ["Booking.com", "Hotels.com"]},
+            {"id": "scout-3", "target": "airbnb",   "sources": ["Airbnb"]},
+        ],
+        "insight": "Mid-week departures are typically 15-20% cheaper. Bundle saves avg $200+.",
+        "next_action": "Synthesise results and present top 3 packages for user approval.",
+        "dom_patterns": {"flights": flight_pattern, "hotels": hotel_pattern},
     }
+
+
+@app.post("/missions/social-manager")
+async def social_manager_mission(request: dict) -> dict:
+    """Creates or updates a permanent social media workflow."""
+    user_id = request.get("user_id", "demo-user")
+    mission_id = f"social-{user_id}"
+    vault = MongoVault()
+    monitor = ArizeMonitor()
+    pipeline = FivetranPipeline()
+
+    await monitor.log_reasoning_trace(mission_id, [
+        "Load social context and past content style from vault.",
+        "Brainstorm post ideas with Gemini using user tone/brand.",
+        "Draft content for user approval before publishing.",
+        "Schedule approved posts via platform APIs.",
+        "Save workflow frequency and platform config to vault.",
+    ])
+    await vault.store_mission_state(mission_id, {"status": "workflow_active", **request})
+    await pipeline.stream_mission_data(mission_id, {"mission": "social-manager"})
+
+    return {
+        "status": "workflow_active",
+        "mission_id": mission_id,
+        "next_action": "Draft 3 post options for approval before scheduling.",
+    }
+
 
 
 @app.post("/missions/gift-scout")
@@ -479,6 +534,9 @@ async def account_resolver_mission(request: AccountResolverRequest) -> dict[str,
         "dom_pattern": dom_pattern,
         "next_action": next_action,
     }
+
+
+app.mount("/", StaticFiles(directory=str(ROOT), html=False), name="static-root")
 
 
 

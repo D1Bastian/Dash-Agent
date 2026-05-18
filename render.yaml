@@ -7,6 +7,9 @@ services:
     envVars:
       - key: DASH_MCP_MODE
         value: live
+      - key: GEMINI_API_KEY
+        sync: false
+        placeholder: "Your Gemini API Key from Google AI Studio"
       - key: MONGO_URI
         sync: false
         placeholder: "mongodb+srv://..."
@@ -26,5 +29,19 @@ services:
         sync: false
       - key: FIVETRAN_API_SECRET
         sync: false
-      - key: PYTHON_VERSION
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+        placeholder: "Your Google OAuth Client ID"
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+        placeholder: "Your Google OAuth Client Secret"
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+        placeholder: "https://your-render-url.onrender.com/auth/google/callback"
+      - key: FRONTEND_URL
+        sync: false
+        placeholder: "https://your-render-url.onrender.com"
+            - key: PYTHON_VERSION
         value: 3.12.3
+
+

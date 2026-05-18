@@ -1,40 +1,67 @@
-# Dash Agent Mission Log
+# Dash Agent — Mission Log
 
 ## Current Directive
 
-Prepare the first hackathon video around autonomous GitLab registration.
+Shift from DevOps demos to everyday consumer challenges. Demonstrate how Dash moves beyond a chatbot to act as a proactive, autonomous orchestrator for complex, multi-step real-world tasks — travel booking, international gifting, account creation, and social media management.
 
-## User Registration
+## Core Philosophy: Move Beyond Chat
 
-Dash registers the user into MongoDB Mission Vault before running missions. The vault stores profile metadata, consented context sources, and non-secret account/session references. Dash-1 uses that context to decide which lightweight sub-agents to spawn for gifts, flights, account setup, social context, shopping, and DevOps sync.
+Dash does not provide links or text answers. Built on Google Cloud Agent Builder with Gemini as the reasoning engine, Dash acts on the user behalf. It plans steps, navigates web pages, deconstructs DOM text, fills forms, and uses sub-agents to do the heavy lifting in the background. It pauses only for human checkpoints: CAPTCHA, MFA, payment confirmation.
 
-## Active Mission
+## The 5-Phase Mission Cycle
 
-`mission-scout`
+Every mission follows this architecture — invisibly to the user:
 
-1. Discover the target action surface.
-2. Plan the field mapping from secure user profile data.
-3. Fill the form through visible, focused browser controls.
-4. Stop for CAPTCHA, MFA, or email verification.
-5. Resume after verification and sync the mission state.
-6. Ask whether the user wants to connect other services and sync data.
+| Phase | Label | What Happens |
+|-------|-------|-------------|
+| 1 | **Find** | Locate the right pages and options across the web |
+| 2 | **Read** | Deconstruct DOM text, strip fluff, map fields via ARIA labels |
+| 3 | **Type** | Enter details, create accounts, prepare carts securely |
+| 4 | **Check** | HITL gate — CAPTCHA, MFA, payment approval |
+| 5 | **Save** | Store receipts, credentials, and context to MongoDB Mission Vault |
 
-## Demo Promise
+## Partner Superpowers (MCP Integrations)
 
-The user sees simple status updates. The agent handles the operational complexity, keeps secrets masked, and asks for help only at legitimate human checkpoints.
+| Partner | Role |
+|---------|------|
+| **MongoDB** | Mission Vault — durable user memory, preferences, account references |
+| **GitLab** | Mission Script library — versions and audits execution state |
+| **Elastic** | Action Search — millisecond recall of previously solved DOM structures |
+| **Arize** | Reasoning Observability — monitors agent health and success rates |
+| **Fivetran** | Data Pipeline — streams mission events to the user data warehouse |
 
-## Context Intake
+## Active Mission 1: Global Gift Scout
 
-Dash can ask the user to connect Google, Apple, GitHub, social links, files, or manual preferences to create a reusable data context. It asks for consented account connections or exports, not raw passwords, and stores context with source, scope, expiry, and deletion metadata.
+**User Request:** "I want to send a gift for my nephew in Trinidad. He has social media — I want suggestions and the best prices."
 
-## Account Resolver
+**Workflow:**
+1. Check MongoDB Vault for nephew social context and destination constraints
+2. Skip vendors that do not ship to Trinidad automatically
+3. Product Scout sub-agent finds items; Price/Logistics agent compares rates
+4. Account Resolver creates store account in background if needed
+5. **HITL gate** — present ranked options, stop before payment
 
-Dash can handle service accounts as a reusable capability. If the user asks for an Amazon, GitLab, GitHub, Google, Apple, or similar action, Dash checks for an approved account context first. Stored access is represented as authorized credential or session references, never raw secrets. If no account exists, Dash asks permission to create one, maps the form through text and accessibility semantics, fills fields with browser events, and stops for CAPTCHA, MFA, phone, or email verification.
+## Active Mission 2: Travel Concierge
 
-## Expansion Mission
+**User Request:** "Best rates for flights, best dates, package deals with hotels and Airbnb."
 
-`gift-scout`
+**Workflow:**
+1. Spawn 3 parallel Travel Scout sub-agents (flights, hotels, Airbnb)
+2. Agents read live DOM, compare real-time dates and prices
+3. Synthesize best package combos using vault preferences (seat type, layover limit, home airport)
+4. Present options to user for final approval
+5. On "Book it" — handle checkout, passenger details, save itinerary to vault
 
-The user can say: "Buy a gift for my friend."
+## Permanent Workflows
 
-Dash asks for permissioned context first. It can use public social links, user exports, or a browser session handoff, but it does not store raw Instagram or Facebook passwords. If no social context is available, Dash asks for age range, relationship, occasion, budget, interests, and shipping country. Sub-agents then infer preferences, search products, compare price and delivery, rank recommendations, and stop before checkout for approval.
+Users can create automated agentic workflows:
+- **Social Media Manager** — brainstorm with Dash, approve content, set frequency, auto-publish
+- **Price Drop Alerts** — monitor products, alert before buying
+- **Account Manager** — create and maintain accounts across platforms on request
+
+## Safety Guardrails
+
+- Credentials stored as vault references, never raw secrets
+- CAPTCHA, MFA, email/phone verification always pause for human input
+- Payment never executed without explicit user confirmation
+- Social context (Instagram, Facebook) accessed via OAuth or user-approved exports only

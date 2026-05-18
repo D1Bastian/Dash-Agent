@@ -1,381 +1,237 @@
-const brandIcons = [
-    'fa-brands fa-gitlab',
-    'fa-brands fa-google',
-    'fa-brands fa-apple',
-    'fa-brands fa-github',
-    'fa-brands fa-docker',
-    'fa-brands fa-slack',
-    'fa-solid fa-database',
-    'fa-solid fa-code-branch',
-    'fa-solid fa-shield-halved',
-    'fa-solid fa-magnifying-glass-chart',
-    'fa-solid fa-robot',
-    'fa-solid fa-lock'
-];
-
-const floatClasses = ['float-a', 'float-b', 'float-c', 'float-d'];
+﻿/* --- CONFIG ------------------------------- */
 const API_BASE = window.DASH_API_BASE || 'http://localhost:8000';
+const ICONS = ['fa-brands fa-gitlab','fa-brands fa-google','fa-brands fa-apple','fa-brands fa-github','fa-solid fa-database','fa-solid fa-robot','fa-solid fa-shield-halved','fa-solid fa-gift','fa-solid fa-plane','fa-brands fa-docker','fa-solid fa-magnifying-glass-chart','fa-solid fa-lock'];
+const FLOAT = ['float-a','float-b','float-c','float-d'];
+let currentView = 'home';
 
-const missionProfiles = {
-    context: {
-        matcher: (text) => text.includes('data context') || text.includes('google account') || text.includes('apple account') || text.includes('connect google') || text.includes('connect apple'),
-        command: 'Build my data context from accounts I approve, starting with Google or Apple.',
-        apiPath: '/context/intake',
-        apiBody: { user_id: 'demo-user', allowed_sources: [], allowed_scopes: [] },
-        statuses: [
-            'Preparing consent screen...',
-            'Listing account connection options...',
-            'Defining minimum useful scopes...',
-            'Waiting for user-approved context sources...'
-        ],
-        responses: [
-            '<strong>Context intake ready.</strong> I can use Google, Apple, GitHub, public social links, uploads, or a short questionnaire to build your Mission Vault.',
-            '<strong>Privacy checkpoint.</strong> I ask for account connections or exports, not raw passwords, and every context source gets consent, expiry, and deletion metadata.'
-        ]
-    },
-    github: {
-        matcher: (text) => text.includes('github') && (text.includes('sync') || text.includes('connect') || text.includes('import')),
-        command: 'Sync my GitHub repositories into GitLab after registration.',
-        apiPath: '/missions/github-sync',
-        apiBody: { user_id: 'demo-user', github_connection_ready: false },
-        statuses: [
-            'Preparing GitHub sync handoff...',
-            'Checking connection options...',
-            'Mapping repository import strategy...',
-            'Waiting for user-approved GitHub connection...'
-        ],
-        responses: [
-            '<strong>GitHub sync mission staged.</strong> I can connect through OAuth, a user-provided token stored in the vault, or a browser session handoff. I will not ask for a GitHub password.',
-            '<strong>Next checkpoint.</strong> Once GitHub is connected, I will enumerate repositories, ask which ones to sync, then create matching GitLab projects through the GitLab partner workflow.'
-        ]
-    },
+/* --- SPACE BACKDROP ----------------------- */
+function initBackdrop() {
+  const el = document.getElementById('space-backdrop');
+  if (!el) return;
+  const shuffled = [...ICONS].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < 14; i++) {
+    const icon = document.createElement('i');
+    icon.className = `${shuffled[i % shuffled.length]} floating-icon ${FLOAT[i % 4]}`;
+    icon.style.cssText = `top:${5 + Math.random()*88}%;left:${5 + Math.random()*88}%;font-size:${48 + Math.random()*110}px;animation-delay:-${(Math.random()*30).toFixed(1)}s;color:rgba(255,255,255,${(0.03+Math.random()*0.07).toFixed(3)})`;
+    el.appendChild(icon);
+  }
+}
 
-    travel: {
-        matcher: (text) => text.includes('flight') || text.includes('travel') || text.includes('book'),
-        command: 'Find and compare travel options for my next trip.',
-        statuses: [
-            'Analyzing travel constraints...',
-            'Opening booking surfaces...',
-            'Resolving calendar and autocomplete widgets...'
-        ],
-        responses: [
-            '<strong>Travel mission locked.</strong> I will compare flight options and ask for confirmation before any booking step.'
-        ]
-    },
-    gift: {
-        matcher: (text) => text.includes('gift') || text.includes('present') || text.includes('birthday') || text.includes('friend'),
-        command: 'Buy a gift for my friend using allowed context, best price, and delivery confidence.',
-        statuses: [
-            'Checking what friend context you allowed...',
-            'Planning social, questionnaire, and shopping sub-agents...',
-            'Inferring interests and confidence levels...',
-            'Scouting products, price, shipping, and seller reliability...',
-            'Ranking gifts by fit, cost, novelty, and delivery confidence...'
-        ],
-        responses: [
-            '<strong>Gift Scout activated.</strong> I can use public links, exports, or a user-approved browser session. I will not store raw Instagram or Facebook passwords.',
-            '<strong>Next checkpoint.</strong> If no social context is available, I will ask for age range, occasion, budget, interests, relationship, and shipping country before recommending gifts.'
-        ]
-    },
-    default: {
-        matcher: () => true,
-        command: '',
-        statuses: [
-            'Analyzing mission parameters...',
-            'Planning tool calls...',
-            'Preparing a verified action path...'
-        ],
-        responses: [
-            '<strong>Copy.</strong> I am breaking down the task and will report back with the next safe action.'
-        ]
-    }
+/* --- SCREEN TRANSITIONS ------------------- */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
+  const s = document.getElementById(id);
+  s.style.display = (id === 'screen-dashboard') ? 'flex' : 'flex';
+  requestAnimationFrame(() => s.classList.add('active'));
+}
+
+/* --- AUTH --------------------------------- */
+async function registerUser(provider = 'email') {
+  const email = (document.getElementById('auth-input') || {}).value || '';
+  try {
+    await fetch(`${API_BASE}/users/register`, { method: 'POST', headers: authHeaders(),, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: 'demo-user', primary_email: email, auth_provider: provider, mission_goals: ['gift-scout','travel','account-resolver','social-manager'] })
+    });
+  } catch (_) {}
+}
+
+function goToConsent(provider) {
+  registerUser(provider);
+  showScreen('screen-consent');
+}
+
+function goToDashboard() {
+  updateUserDisplay();
+  showScreen('screen-dashboard');
+  setTimeout(() => addMessage('<strong>Mission Vault ready.</strong> MongoDB has your context. What\'s the mission today?', 'agent'), 700);
+}
+
+document.getElementById('btn-continue').addEventListener('click', () => goToConsent('email'));
+document.getElementById('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') goToConsent('email'); });
+document.querySelectorAll('[data-provider]').forEach(b => b.addEventListener('click', () => { goToConsent(b.dataset.provider); setTimeout(() => { const inp = document.getElementById('auth-input'); if(inp) inp.value = `Build context from my ${b.dataset.provider} account`; }, 600); }));
+document.getElementById('btn-grant-consent').addEventListener('click', startGoogleOAuth);
+document.getElementById('btn-skip-consent').addEventListener('click', () => goToDashboard());
+
+/* --- SIDEBAR NAV -------------------------- */
+function switchView(viewName) {
+  currentView = viewName;
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const view = document.getElementById(`view-${viewName}`);
+  if (view) view.style.display = 'flex';
+  const navBtn = document.getElementById(`nav-${viewName}`);
+  if (navBtn) navBtn.classList.add('active');
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => switchView(b.dataset.view)));
+
+/* --- MISSION PROFILES --------------------- */
+const missions = {
+  gift: {
+    match: t => t.includes('gift') || t.includes('nephew') || t.includes('trinidad') || t.includes('present'),
+    phases: ['Finding vendors that ship to Trinidad...','Reading product pages & stripping DOM fluff...','Comparing prices across Amazon, eBay & Etsy...','Building ranked shortlist — stopping before checkout...','Saving options to Mission Vault...'],
+    responses: [
+      '<strong>Gift Scout activated.</strong> I found 3 vendors that ship to Trinidad. Checking social context from vault for interest signals.',
+      '<strong>Top picks ready.</strong> Ranked by interest fit, price, delivery time & seller reliability. I\'ll stop here for your approval before any purchase.',
+      '<button class="inline-action" data-inline-command="Approve the top gift and proceed to checkout.">Approve Top Pick</button>'
+    ]
+  },
+  travel: {
+    match: t => t.includes('flight') || t.includes('travel') || t.includes('hotel') || t.includes('book') || t.includes('airbnb'),
+    phases: ['Spawning 3 Travel Scout sub-agents...','Scout-1: reading Expedia flight DOM...','Scout-2: parsing Booking.com hotel rates...','Scout-3: checking Airbnb availability...','Synthesizing best package combinations...'],
+    responses: [
+      '<strong>Travel Concierge running.</strong> 3 parallel scouts launched — flights, hotels, Airbnb. Comparing real-time dates & rates.',
+      '<strong>Best window found:</strong> Flights are 18% cheaper mid-week. Hotel + flight bundle saves ~$240 vs separate bookings.',
+      'Ready to book? I\'ll handle checkout, passenger details & save the itinerary to your vault. <button class="inline-action" data-inline-command="Book the best travel package.">Book It</button>'
+    ]
+  },
+  account: {
+    match: t => t.includes('account') || t.includes('register') || t.includes('sign up') || t.includes('create'),
+    phases: ['Checking Mission Vault for existing accounts...','Navigating to registration surface...','Mapping accessible form fields via ARIA labels...','Filling fields with browser keyboard events...','Stopping for CAPTCHA / email verification...'],
+    responses: [
+      '<strong>Account Resolver running.</strong> No existing account found in vault. Starting registration with accessible form mapping.',
+      '?? <strong>CAPTCHA detected.</strong> Please complete it in the browser — I\'ll resume automatically after.'
+    ]
+  },
+  social: {
+    match: t => t.includes('post') || t.includes('social') || t.includes('instagram') || t.includes('twitter') || t.includes('content'),
+    phases: ['Loading social context from vault...','Brainstorming content ideas with Gemini...','Drafting posts for your approval...','Scheduling approved content...','Saving workflow state to vault...'],
+    responses: [
+      '<strong>Social Manager activated.</strong> I\'ve drafted 3 post ideas based on your past content. Review & approve before publishing.',
+      'Want to set up a <strong>permanent workflow</strong>? I can post automatically on a schedule. <button class="inline-action" data-inline-command="Create a social media workflow.">Set Up Workflow</button>'
+    ]
+  },
+  default: {
+    match: () => true,
+    phases: ['Analyzing mission parameters...','Planning tool calls...','Routing to sub-agents...'],
+    responses: ['<strong>Copy.</strong> Breaking down the task — I\'ll report back with the next safe action step.']
+  }
 };
 
-function initSpaceBackdrop() {
-    const container = document.getElementById('space-backdrop');
-    if (!container) return;
-
-    const shuffled = [...brandIcons].sort(() => Math.random() - 0.5);
-    const count = 12 + Math.floor(Math.random() * 6);
-
-    for (let i = 0; i < count; i++) {
-        const el = document.createElement('i');
-        const iconClass = shuffled[i % shuffled.length];
-        const floatClass = floatClasses[Math.floor(Math.random() * floatClasses.length)];
-
-        el.className = `${iconClass} floating-icon ${floatClass}`;
-        el.style.top = `${5 + Math.random() * 90}%`;
-        el.style.left = `${5 + Math.random() * 90}%`;
-        el.style.fontSize = `${50 + Math.random() * 120}px`;
-        el.style.animationDelay = `${-(Math.random() * 30).toFixed(1)}s`;
-        el.style.color = `rgba(255,255,255,${(0.04 + Math.random() * 0.08).toFixed(3)})`;
-
-        container.appendChild(el);
-    }
+function resolveMission(text) {
+  const t = text.toLowerCase();
+  return Object.values(missions).find(m => m.match(t)) || missions.default;
 }
 
-function enterDash() {
-    const auth = document.getElementById('auth-screen');
-    const main = document.getElementById('main-screen');
-
-    auth.style.transition = 'opacity 0.4s ease';
-    auth.style.opacity = '0';
-
-    setTimeout(() => {
-        auth.style.display = 'none';
-        main.style.display = 'flex';
-        main.style.opacity = '0';
-        requestAnimationFrame(() => {
-            main.style.transition = 'opacity 0.4s ease';
-            main.style.opacity = '1';
-        });
-    }, 400);
-}
-
-async function registerUserContext(authProvider = 'email', authorizedSources = []) {
-    const primaryEmail = authInput.value.trim() || null;
-    const sourceSet = new Set(authorizedSources);
-    if (authProvider === 'google') sourceSet.add('google');
-    if (authProvider === 'apple') sourceSet.add('apple');
-
-    try {
-        const response = await fetch(`${API_BASE}/users/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: 'demo-user',
-                primary_email: primaryEmail,
-                auth_provider: authProvider,
-                authorized_sources: [...sourceSet],
-                mission_goals: ['gift-scout', 'travel', 'account-resolver']
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        return { status: 'api_unavailable', error: error.message };
-    }
-}
-
-async function registerAndEnter(authProvider = 'email', authorizedSources = []) {
-    const result = await registerUserContext(authProvider, authorizedSources);
-    enterDash();
-
-    setTimeout(() => {
-        if (result.status === 'registered') {
-            addMessage(
-                '<strong>Mission Vault ready.</strong> MongoDB registered your user context and Dash-1 can now route work to lightweight sub-agents.',
-                'agent'
-            );
-        } else if (result.status === 'api_unavailable') {
-            addMessage(
-                '<strong>Local mode.</strong> The API is not connected, but the UI can still demonstrate the mission flow.',
-                'agent'
-            );
-        }
-    }, 650);
-}
-
-const continueBtn = document.getElementById('continue-btn');
-const authInput = document.querySelector('.auth-input');
-const textarea = document.getElementById('command-input');
+/* --- MESSAGE THREAD ----------------------- */
 const thread = document.getElementById('message-thread');
-const statusArea = document.getElementById('status-area');
-const statusText = document.getElementById('status-text');
-
-continueBtn.addEventListener('click', () => registerAndEnter('email'));
-
-authInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        registerAndEnter('email');
-    }
-});
-
-textarea.addEventListener('input', function () {
-    this.style.height = 'auto';
-    this.style.height = `${this.scrollHeight}px`;
-});
-
-textarea.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        executeCommand();
-    }
-});
-
-document.getElementById('execute-btn').addEventListener('click', executeCommand);
-
-document.querySelectorAll('[data-command]').forEach((button) => {
-    button.addEventListener('click', () => {
-        textarea.value = button.dataset.command;
-        textarea.dispatchEvent(new Event('input'));
-        textarea.focus();
-    });
-});
-
-document.querySelectorAll('[data-context-source]').forEach((button) => {
-    button.addEventListener('click', async () => {
-        const source = button.dataset.contextSource === 'apple' ? 'Apple account' : 'Google account';
-        await registerAndEnter(button.dataset.contextSource, [button.dataset.contextSource]);
-        setTimeout(() => {
-            textarea.value = `Build my data context from my ${source} using only scopes I approve.`;
-            textarea.dispatchEvent(new Event('input'));
-            executeCommand();
-        }, 520);
-    });
-});
-
-thread.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-inline-command]');
-    if (!button) return;
-    textarea.value = button.dataset.inlineCommand;
-    textarea.dispatchEvent(new Event('input'));
-    executeCommand();
-});
-
-function addMessage(text, type, options = { html: true }) {
-    const msg = document.createElement('div');
-    msg.className = `message ${type}`;
-    if (options.html) {
-        msg.innerHTML = text;
-    } else {
-        msg.textContent = text;
-    }
-    thread.appendChild(msg);
-    thread.scrollTop = thread.scrollHeight;
-    return msg;
+function addMessage(html, type = 'agent') {
+  const div = document.createElement('div');
+  div.className = `message ${type}`;
+  div.innerHTML = html;
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+  const cards = document.getElementById('mission-cards');
+  if (cards && thread.children.length > 0) cards.style.display = 'none';
+  return div;
 }
 
-function resolveMission(raw) {
-    const lower = raw.toLowerCase();
-    return Object.values(missionProfiles).find((profile) => profile.matcher(lower)) || missionProfiles.default;
+/* --- PHASE CYCLING ------------------------ */
+const phaseIds = ['phase-find','phase-read','phase-type','phase-check','phase-save'];
+function runPhases(phases, onDone) {
+  const statusArea = document.getElementById('status-area');
+  const statusText = document.getElementById('status-text');
+  statusArea.style.display = 'flex';
+  phaseIds.forEach(id => { const el = document.getElementById(id); if(el) { el.classList.remove('active','done'); } });
+  document.getElementById('phase-find').classList.add('active');
+  let i = 0;
+  const step = () => {
+    if (statusText) statusText.textContent = phases[i] || 'Working...';
+    const phaseEl = document.getElementById(phaseIds[i]);
+    if (phaseEl) { phaseEl.classList.remove('active'); phaseEl.classList.add('done'); }
+    const next = document.getElementById(phaseIds[i + 1]);
+    if (next) next.classList.add('active');
+    i++;
+    if (i < phases.length) { setTimeout(step, 1100); return; }
+    setTimeout(() => { statusArea.style.display = 'none'; onDone(); }, 1000);
+  };
+  setTimeout(step, 900);
 }
 
-function runStatusSequence(statuses, onDone) {
-    statusArea.style.display = 'flex';
-    let index = 0;
-
-    const advance = () => {
-        statusText.textContent = statuses[index];
-        index += 1;
-
-        if (index < statuses.length) {
-            setTimeout(advance, index === 1 ? 900 : 1200);
-            return;
-        }
-
-        setTimeout(() => {
-            statusArea.style.display = 'none';
-            onDone();
-        }, 1200);
-    };
-
-    advance();
-}
-
-async function callMissionApi(mission) {
-    if (!mission.apiPath) return null;
-
-    try {
-        const response = await fetch(`${API_BASE}${mission.apiPath}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(mission.apiBody || { user_id: 'demo-user' })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        return { status: 'api_unavailable', error: error.message };
-    }
-}
-
-function renderApiResult(mission, result) {
-    if (!result) return;
-
-    if (result.status === 'api_unavailable') {
-        addMessage('<strong>API not connected.</strong> Start the backend on port 8000 before recording the integrated flow.', 'agent');
-        return;
-    }
-
-    if (result.status === 'verification_required') {
-        addMessage(
-            '<strong>API orchestration checkpoint.</strong> The backend registered the mission state and is waiting for GitLab verification. After you complete it, I can continue into GitHub sync. <button class="inline-action" data-inline-command="Sync my GitHub repositories into GitLab after registration.">Sync GitHub</button>',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'needs_github_connection') {
-        addMessage(
-            '<strong>GitHub connection needed.</strong> Choose OAuth, a vault-stored token, or browser session handoff. Then I can list repositories and ask which ones to import into GitLab.',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'needs_repository_selection') {
-        addMessage(
-            '<strong>Repository selection needed.</strong> I found authorized GitHub repositories and will ask which ones to sync into GitLab.',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'needs_consent') {
-        addMessage(
-            '<strong>Consent needed.</strong> Choose Google, Apple, GitHub, public social links, uploads, or manual preferences. I will store only approved context in the Mission Vault.',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'needs_account_permission') {
-        addMessage(
-            '<strong>Account decision needed.</strong> Tell me whether to use an existing account session or create a new account for this service.',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'account_context_available' || result.status === 'ready_to_create_account') {
-        addMessage(
-            '<strong>Account path ready.</strong> I will use text, labels, roles, and semantic fields to operate the form, with human checkpoints for verification.',
-            'agent'
-        );
-        return;
-    }
-
-    if (result.status === 'success' || result.status === 'ready_to_sync' || result.status === 'context_ready') {
-        addMessage('<strong>Mission ready.</strong> The backend API accepted the mission and prepared the next action.', 'agent');
-    }
-}
+/* --- EXECUTE ------------------------------ */
+const textarea = document.getElementById('command-input');
+const executeBtn = document.getElementById('execute-btn');
 
 function executeCommand() {
-    const raw = textarea.value.trim();
-    if (!raw) return;
-
-    const mission = resolveMission(raw);
-
-    addMessage(raw, 'user', { html: false });
-    textarea.value = '';
-    textarea.style.height = 'auto';
-
-    runStatusSequence(mission.statuses, async () => {
-        const result = await callMissionApi(mission);
-        mission.responses.forEach((response, index) => {
-            setTimeout(() => addMessage(response, 'agent'), index * 650);
-        });
-        setTimeout(() => renderApiResult(mission, result), mission.responses.length * 650 + 250);
-    });
+  const raw = textarea.value.trim();
+  if (!raw) return;
+  addMessage(raw, 'user');
+  textarea.value = '';
+  textarea.style.height = 'auto';
+  const mission = resolveMission(raw);
+  runPhases(mission.phases, () => {
+    mission.responses.forEach((r, idx) => setTimeout(() => addMessage(r, 'agent'), idx * 700));
+  });
 }
 
-document.addEventListener('DOMContentLoaded', initSpaceBackdrop);
+executeBtn.addEventListener('click', executeCommand);
+textarea.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); executeCommand(); } });
+textarea.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; });
+
+/* --- MISSION CARD SHORTCUTS --------------- */
+const missionPrompts = {
+  gift: "I want to send a gift to my nephew in Trinidad. He's on social media — find suggestions and best prices.",
+  travel: "Find me the best flights, hotels and Airbnb deals. I want the cheapest dates and package combos.",
+  account: "Create a new account for me and save it securely to the Mission Vault.",
+  social: "Draft 3 Instagram posts for me and set up an automated posting schedule."
+};
+document.querySelectorAll('[data-mission]').forEach(card => {
+  card.addEventListener('click', () => {
+    textarea.value = missionPrompts[card.dataset.mission] || '';
+    textarea.dispatchEvent(new Event('input'));
+    executeCommand();
+  });
+});
+
+/* --- INLINE BUTTON DELEGATION ------------- */
+thread.addEventListener('click', e => {
+  const btn = e.target.closest('[data-inline-command]');
+  if (!btn) return;
+  textarea.value = btn.dataset.inlineCommand;
+  executeCommand();
+});
+
+/* --- WORKFLOW MODAL ----------------------- */
+const wfModal = document.getElementById('modal-workflow');
+['btn-new-workflow','btn-create-workflow'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', () => { wfModal.style.display = 'flex'; });
+});
+['btn-close-wf-modal','btn-close-wf-modal-2'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', () => { wfModal.style.display = 'none'; });
+});
+const wfNext = document.getElementById('btn-wf-next');
+if (wfNext) {
+  wfNext.addEventListener('click', () => {
+    const input = document.getElementById('wf-brainstorm-input').value.trim();
+    if (!input) return;
+    wfModal.style.display = 'none';
+    switchView('home');
+    textarea.value = input;
+    executeCommand();
+  });
+}
+
+/* --- HITL MODAL --------------------------- */
+const hitlModal = document.getElementById('modal-hitl');
+const hitlApprove = document.getElementById('btn-hitl-approve');
+const hitlDeny = document.getElementById('btn-hitl-deny');
+if (hitlApprove) hitlApprove.addEventListener('click', () => { hitlModal.style.display = 'none'; addMessage('<strong>Approved.</strong> Continuing mission...', 'agent'); });
+if (hitlDeny) hitlDeny.addEventListener('click', () => { hitlModal.style.display = 'none'; addMessage('<strong>Mission paused.</strong> Standing by for your direction.', 'agent'); });
+
+/* --- INIT --------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  initBackdrop();
+  if (parseOAuthRedirect()) {
+    goToDashboard();
+  } else if (session.accessToken) {
+    updateUserDisplay();
+    goToDashboard();
+  } else {
+    showScreen('screen-auth');
+  }
+  switchView('home');
+});
+

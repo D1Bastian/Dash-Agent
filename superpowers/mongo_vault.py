@@ -80,3 +80,11 @@ class MongoVault:
                 "email": 1
             }
         })
+
+    async def get_context_source(self, user_id: str, provider: str) -> dict:
+        """Retrieves a stored context source (e.g. Google OAuth refresh token) for a user."""
+        return await self.client.call_tool("find_document", {
+            "collection": "context_sources",
+            "filter": {"user_id": user_id, "source.provider": provider},
+        })
+

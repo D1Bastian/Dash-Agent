@@ -1,101 +1,83 @@
-# First Demo Video: Autonomous GitLab Registration
+# Dash Demo Video Script
 
-Target length: 3 minutes.
+**Target length:** ~3 minutes  
+**Story:** Dash as a personal autonomous agent — two real-world missions, silent orchestration, human checkpoints.
 
-## Story
+---
 
-Dash Agent helps a user move from intent to action. In this first demo, the user asks Dash to register a GitLab account. Gemini plans the mission, MongoDB stores the user and mission context, Elastic recalls DOM/action patterns, Arize observes reasoning and guardrails, and Fivetran streams mission events for analytics.
+## 0:00–0:20 | Hook
 
-## Recording Plan
+> "Most AI apps stop at advice. Dash takes action. It plans the mission, navigates real websites, fills forms, compares prices — and only stops when it needs you."
 
-Record locally with OBS. Start the backend and the static web app before capture if you want the API-integrated UI responses visible.
+Show the Dash login screen with floating partner icons.
 
-### 0:00-0:20 - Problem
+---
 
-Say:
+## 0:20–0:40 | Sign In + Gemini Consent
 
-> Most AI apps stop at advice. Dash is an action agent: it can plan a real web mission, operate the browser, and keep a human in control.
+Sign in with Google. Show the Gemini account linking screen.
 
-> The partner track is MongoDB. It is the Mission Vault that makes the agent personal and durable.
+> "First, Dash links your Gemini account and registers you in the MongoDB Mission Vault. This gives Dash durable memory — it will never ask for your address or preferences twice."
 
-Show the Dash UI.
+Show the consent permissions panel and click Authorize.
 
-### 0:20-0:45 - User Registration
+---
 
-Sign in with email, Google, or Apple.
+## 0:40–1:20 | Mission 1: Global Gift Scout (Trinidad)
 
-Say:
+Click the **Gift Scout** mission card or type:
 
-> Dash first registers me in MongoDB Mission Vault. That gives the master agent a consented context record before it starts creating accounts, buying gifts, booking flights, or syncing repositories.
+> "I want to send a gift to my nephew in Trinidad. He's on social media — find suggestions and best prices."
 
-### 0:45-1:05 - API-Integrated Command
+Show the 5 phase dots lighting up: **Find ? Read ? Type ? Check ? Save**
 
-Click `GitLab Registration` or type:
+Narrate each phase:
+> "Finding... it already knows Trinidad shipping constraints from the vault. Reading product pages. Comparing prices. Skipping vendors that don't ship internationally."
 
-```text
-Register my GitLab account, stop for human verification if needed, then provision the mission repository.
-```
+Show agent responses with ranked gift options.
 
-Say:
+> "Dash stops here. It built the cart, ranked the options, and is waiting for my approval before touching payment."
 
-> The frontend is backed by our mission API. It shows only mission-level state, while the agent does page discovery, field mapping, and partner sync in the background.
+---
 
-### 1:05-1:45 - Autonomous Browser Fill
+## 1:20–2:00 | Mission 2: Travel Concierge
 
-Run:
+Type:
 
-```powershell
-python missions\gitlab_registration.py
-```
+> "Find me the best flights and hotel package deals — I want the cheapest dates."
 
-Show GitLab opening and the form being filled.
+Show 3 scout agents spawning in the status bar.
 
-Say:
+> "Three parallel sub-agents — one on flights, one on hotels, one on Airbnb — reading live DOM text from real booking sites."
 
-> The browser mission does not rely on brittle CSS selectors. It maps the form through accessible labels and verifies each field holds the intended value.
+Show the synthesized result message.
 
-### 1:45-2:10 - Human Checkpoint
+> "Best window: mid-week flights, 18% cheaper. A bundle saves $240. I say Book It — Dash handles the checkout, saves the itinerary to the vault."
 
-If GitLab shows CAPTCHA or email verification, complete it manually.
+---
 
-Say:
+## 2:00–2:30 | Permanent Workflows
 
-> This is intentional. Dash does not bypass CAPTCHA, MFA, or email confirmation. It halts, asks for human help, then resumes from the new browser state.
+Navigate to the **Workflows** tab.
 
-### 2:10-2:35 - GitLab MCP Sync
+> "Dash isn't just for one-time tasks. You can create permanent workflows. Here's one running now: a social media manager posting 3 times a week, brainstormed with Dash and auto-published after my approval."
 
-Call the backend with verification completed:
+Click **Create New Workflow** — show the brainstorm modal.
 
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/gitlab-registration -ContentType "application/json" -Body '{"user_id":"demo-user","verification_completed":true}'
-```
+> "Tell Dash what you want. It figures out the schedule, the platforms, the credentials — and runs it forever."
 
-Say:
+---
 
-> Once the session is verified, Dash records the mission state in MongoDB, observes it with Arize, recalls patterns through Elastic, and streams the event through Fivetran. GitLab is the live target service in this first demo.
+## 2:30–3:00 | Mission Vault + Close
 
-### 2:35-2:50 - Ask To Sync GitHub
+Navigate to the **Mission Vault**.
 
-Click the in-app `Sync GitHub` prompt or call:
+> "Everything Dash learns is stored here — addresses, payment methods, social context, travel preferences. Accessed by consent. Deleteable at any time."
 
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/missions/github-sync -ContentType "application/json" -Body '{"user_id":"demo-user","github_connection_ready":false}'
-```
+Show MongoDB badge connected.
 
-Say:
+> "MongoDB is the Mission Vault. GitLab versions the mission scripts. Elastic recalls DOM patterns. Arize observes the reasoning. Fivetran streams the data. Five partner superpowers. One agent."
 
-> Dash now asks to connect GitHub through OAuth, a token stored in the vault, or a browser session handoff. It never asks for a GitHub password.
+End on the Dash logo.
 
-### 2:50-3:00 - Close
-
-Say:
-
-> This is the core pattern: natural language in, real-world action out, with human checkpoints, account context by consent, and partner MCP tools making the action durable.
-
-Show the repository README and LICENSE.
-
-## Optional Expansion Line
-
-Say:
-
-> The same account resolver works for services like Amazon. If I already have an account, Dash uses approved account context. If I do not, it asks permission, fills the form through text and accessibility semantics, pauses for CAPTCHA or MFA, then resumes the shopping mission.
+> "Dash. Natural language in. Real-world action out."
