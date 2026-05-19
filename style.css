@@ -276,10 +276,10 @@ body.time-dusk .horizon-wash {
 
 .arc-shell {
   position: absolute;
-  top: -315px;
+  top: 30px;
   left: 50%;
-  width: min(1280px, calc(100vw - 72px));
-  height: 410px;
+  width: min(800px, calc(100vw - 72px));
+  height: 90px;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -288,14 +288,10 @@ body.time-dusk .horizon-wash {
   content: "";
   position: absolute;
   inset: 0;
-  border-bottom: 1px solid rgba(0, 121, 141, 0.34);
-  border-radius: 0 0 50% 50% / 0 0 100% 100%;
-  background:
-    radial-gradient(ellipse at 50% 100%, rgba(19, 184, 201, 0.14), transparent 32%),
-    linear-gradient(90deg, transparent 6%, rgba(255,255,255,0.42), transparent 94%);
-  box-shadow:
-    0 18px 44px rgba(0, 140, 163, 0.16),
-    inset 0 -10px 24px rgba(255,255,255,0.18);
+  border-top: 1px solid rgba(0, 121, 141, 0.34);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(19, 184, 201, 0.14), transparent 60%);
+  box-shadow: inset 0 10px 24px rgba(255,255,255,0.18);
 }
 
 body.time-night .topbar {
@@ -303,10 +299,8 @@ body.time-night .topbar {
 }
 
 body.time-night .arc-shell::before {
-  border-bottom-color: rgba(109, 226, 242, 0.34);
-  box-shadow:
-    0 20px 54px rgba(19, 184, 201, 0.2),
-    inset 0 -10px 26px rgba(109, 226, 242, 0.1);
+  border-top-color: rgba(109, 226, 242, 0.34);
+  box-shadow: inset 0 10px 26px rgba(109, 226, 242, 0.1);
 }
 
 body.time-night .brand,
@@ -326,27 +320,27 @@ body.time-night .nav-link {
 }
 
 .nav-link:nth-child(1) {
-  transform: translateY(3px) rotate(16deg);
+  transform: translateY(22px);
 }
 
 .nav-link:nth-child(2) {
-  transform: translateY(10px) rotate(9deg);
+  transform: translateY(8px);
 }
 
 .nav-link:nth-child(3) {
-  transform: translateY(22px) rotate(3deg);
+  transform: translateY(0px);
 }
 
 .nav-link:nth-child(4) {
-  transform: translateY(22px) rotate(-3deg);
+  transform: translateY(0px);
 }
 
 .nav-link:nth-child(5) {
-  transform: translateY(10px) rotate(-9deg);
+  transform: translateY(8px);
 }
 
 .nav-link:nth-child(6) {
-  transform: translateY(3px) rotate(-16deg);
+  transform: translateY(22px);
 }
 
 .nav-link:hover,
