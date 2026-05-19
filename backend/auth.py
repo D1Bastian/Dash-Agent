@@ -32,6 +32,7 @@ SCOPES = " ".join([
 ])
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 
 # -- 1. Get the Google OAuth login URL --------------------------------------
@@ -169,30 +170,33 @@ async def gemini_generate(body: GeminiRequest, request: Request):
     """
     Calls Gemini using the user own Google OAuth access token.
     The Authorization header must carry Bearer <access_token>.
-    Falls back to demo response if no token is present (local dev).
+    Falls back to server GEMINI_API_KEY if no user token is present.
     """
     auth_header = request.headers.get("Authorization", "")
     access_token = auth_header.replace("Bearer ", "").strip()
-
-    if not access_token or access_token == "demo-token":
-        # Demo mode - return a canned response
-        return {
-            "status": "demo",
-            "text": f"[Demo mode] Gemini would respond to: {body.prompt[:80]}...",
-            "mission": body.mission,
-        }
 
     payload = {
         "contents": [{"role": "user", "parts": [{"text": body.prompt}]}],
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
     }
 
+    headers = {}
+    url = f"{GEMINI_API_BASE}/models/{body.model}:generateContent"
+
+    if access_token and access_token != "demo-token":
+        headers["Authorization"] = f"Bearer {access_token}"
+    elif GEMINI_API_KEY:
+        url = f"{url}?key={GEMINI_API_KEY}"
+    else:
+        # Demo mode fallback if NO keys are available
+        return {
+            "status": "demo",
+            "text": f"[Demo mode] Gemini would respond to: {body.prompt[:80]}...",
+            "mission": body.mission,
+        }
+
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            f"{GEMINI_API_BASE}/models/{body.model}:generateContent",
-            json=payload,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
+        resp = await client.post(url, json=payload, headers=headers)
 
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
