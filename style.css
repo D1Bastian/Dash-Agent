@@ -326,27 +326,27 @@ body.time-night .nav-link {
 }
 
 .nav-link:nth-child(1) {
-  transform: translateY(22px) rotate(-16deg);
+  transform: translateY(3px) rotate(16deg);
 }
 
 .nav-link:nth-child(2) {
-  transform: translateY(10px) rotate(-9deg);
-}
-
-.nav-link:nth-child(3) {
-  transform: translateY(3px) rotate(-3deg);
-}
-
-.nav-link:nth-child(4) {
-  transform: translateY(3px) rotate(3deg);
-}
-
-.nav-link:nth-child(5) {
   transform: translateY(10px) rotate(9deg);
 }
 
+.nav-link:nth-child(3) {
+  transform: translateY(22px) rotate(3deg);
+}
+
+.nav-link:nth-child(4) {
+  transform: translateY(22px) rotate(-3deg);
+}
+
+.nav-link:nth-child(5) {
+  transform: translateY(10px) rotate(-9deg);
+}
+
 .nav-link:nth-child(6) {
-  transform: translateY(22px) rotate(16deg);
+  transform: translateY(3px) rotate(-16deg);
 }
 
 .nav-link:hover,
