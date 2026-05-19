@@ -32,7 +32,7 @@
       label: "Workflow",
       icon: "fa-solid fa-rotate",
       endpoint: "/missions/social-manager",
-      title: "Should I turn this into a standing workflow?",
+      title: "Do you want a permanent agent task?",
       body: "Give Dash a rough outcome. It can infer cadence, tools, checkpoints, and what should stay manual.",
       tag: "Open-ended",
       cta: "Shape workflow",
@@ -53,6 +53,7 @@
       cta: "Brief task",
       prompt: "Handle this one-off task:",
       fields: [
+        ["name", "Name this task", "text", "E.g. Ray bans search"],
         ["task", "What should happen?", "textarea", "Compare three options and tell me what to do next."],
         ["deadline", "Timing", "text", "No rush, today, tomorrow, or exact date"],
       ],
@@ -221,10 +222,9 @@
   }
 
   async function requestJSON(path, options = {}) {
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-      ...options,
-    });
+    const finalHeaders = { "Content-Type": "application/json", ...(options.headers || {}) };
+    const finalOptions = { ...options, headers: finalHeaders };
+    const response = await fetch(`${API_BASE}${path}`, finalOptions);
     if (!response.ok) {
       const text = await response.text();
       throw new Error(text || `Request failed: ${response.status}`);
