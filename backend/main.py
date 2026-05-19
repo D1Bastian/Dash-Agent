@@ -240,6 +240,8 @@ async def architecture() -> dict[str, Any]:
     }
 
 
+from missions.dynamic_resolver import run_dynamic_resolver_stream, RegistrationProfile
+
 # ── Universal streaming mission executor ──────────────────────────────────────
 @app.post("/missions/execute/stream")
 async def execute_mission_stream(req: MissionExecuteRequest):
@@ -283,6 +285,48 @@ async def execute_mission_stream(req: MissionExecuteRequest):
     }
 
     system = SYSTEM_PROMPTS.get(req.mission_type, SYSTEM_PROMPTS["task"])
+
+    # Intercept Universal Dynamic Account Resolver
+    if "register" in req.prompt.lower() or "create account" in req.prompt.lower():
+        # Quick heuristic to extract URL or fallback to guessing based on service name
+        import re
+        urls = re.findall(r'https?://[^\s]+', req.prompt)
+        target_url = urls[0] if urls else None
+        
+        if not target_url:
+            if "gitlab" in req.prompt.lower(): target_url = "https://gitlab.com/users/sign_up"
+            elif "github" in req.prompt.lower(): target_url = "https://github.com/signup"
+            elif "linkedin" in req.prompt.lower(): target_url = "https://www.linkedin.com/signup"
+            else: target_url = "https://example.com/signup"
+
+        async def dynamic_resolver_generator():
+            profiles = await vault.get_registration_profile(req.user_id)
+            if profiles and len(profiles) > 0:
+                p = profiles[0]
+                profile = RegistrationProfile(
+                    first_name=p.get("first_name", "Dash"),
+                    last_name=p.get("last_name", "Agent"),
+                    username=p.get("username", f"dash-agent-{req.user_id}"),
+                    email=p.get("email", f"dash-{req.user_id}@example.com"),
+                    password="DashSecurePassword123!"
+                )
+            else:
+                profile = RegistrationProfile(
+                    first_name="Dash",
+                    last_name="Agent",
+                    username="dash-agent-demo-001",
+                    email="dash-demo@example.com",
+                    password="DashSecurePassword123!"
+                )
+            
+            async for chunk in run_dynamic_resolver_stream(target_url, profile, headless=False):
+                yield chunk
+                
+        return StreamingResponse(
+            dynamic_resolver_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     # Log to Arize (non-blocking)
     try:
