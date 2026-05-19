@@ -638,84 +638,98 @@
     els.missionTitle.textContent = mission.label;
     els.chatThread.innerHTML = "";
     renderMissionPhases("find");
-    addMessage("user", prompt);
-    addMessage("agent", "Mission received. I will keep the work quiet and surface only decisions, blockers, and outcomes.");
+    addMessage("user", formatMarkdown(prompt));
+
+    // Phase 1: Find — animated thinking indicator
+    const thinkingNode = addThinkingBubble();
+    await softPause(600);
+    renderMissionPhases("read");
+    thinkingNode.textContent = "Selecting agents and loading context...";
+    await softPause(500);
 
     try {
-      await softPause();
-      renderMissionPhases("read");
-      addMessage("agent", "Checking approved context and selecting the lightest useful agents.");
-      const result = await callMissionEndpoint(type, prompt, payload);
-
-      await softPause();
       renderMissionPhases("type");
-      addMessage("agent", summarizeResult(result));
+      thinkingNode.remove();
 
-      const needsHuman = shouldGate(type, result);
-      await softPause();
+      // Phase 2: Stream live Gemini response
+      const streamNode = addStreamBubble();
+      let finalText = "";
+
+      await callMissionStream(type, prompt, payload, (chunk) => {
+        finalText = chunk;
+        streamNode.innerHTML = formatMarkdown(chunk) + `<span class="cursor-blink">▍</span>`;
+        streamNode.scrollIntoView({ block: "nearest" });
+      });
+
+      // Clean up cursor
+      streamNode.innerHTML = formatMarkdown(finalText);
+
+      const needsHuman = ["travel", "gifts", "shopping", "social", "workflow"].includes(type);
+      await softPause(400);
       renderMissionPhases(needsHuman ? "check" : "save");
 
       if (needsHuman) {
-        addMessage("agent", "A human checkpoint is required before Dash takes the next consequential step.");
-        openCheckpoint(type, result);
+        addMessage("agent", "⏸️ <strong>Checkpoint reached.</strong> Dash prepared the above. Your approval is required before any booking, purchase, or publishing action.");
+        openCheckpoint(type, { status: "ok" });
       } else {
-        completeMission(type, result);
+        completeMission(type, { status: "ok", text: finalText });
       }
     } catch (error) {
+      thinkingNode?.remove();
       renderMissionPhases("check");
-      addMessage("agent", `I hit a local blocker: ${escapeHTML(error.message || error)}.`);
-      notify("Mission paused", "A local endpoint or dependency needs attention before this mission can continue.", true, "analytics");
+      addMessage("agent", `⚠️ Mission paused: ${escapeHTML(error.message || String(error))}`);
+      notify("Mission paused", "An endpoint or configuration issue needs attention.", true, "analytics");
     }
   }
 
-  async function callMissionEndpoint(type, prompt, payload) {
+  // ── Real streaming mission caller ─────────────────────────────────────
+  async function callMissionStream(type, prompt, payload, onChunk) {
     const user_id = state.user.id;
-    if (type === "travel") {
-      return requestJSON("/missions/travel-concierge", {
-        method: "POST",
-        body: JSON.stringify({ user_id, prompt, ...payload }),
-      });
-    }
-    if (type === "shopping") {
-      return requestJSON("/missions/shopping-scout", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id,
-          item: payload.item || prompt,
-          budget: payload.budget || null,
-          shipping_country: payload.shipping_country || state.user.country,
-          preference: payload.preference || null,
-          constraints: splitList(payload.constraints),
-        }),
-      });
-    }
-    if (type === "gifts") {
-      return requestJSON("/missions/gift-scout", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id,
-          friend_name: payload.friend_name || null,
-          occasion: payload.occasion || "general",
-          budget: payload.budget || null,
-          age_range: payload.age_range || null,
-          interests: splitList(payload.interests || payload.preference || payload.item),
-          shipping_country: payload.shipping_country || state.user.country,
-          public_social_links: [],
-          connected_social_session: false,
-        }),
-      });
-    }
-    if (type === "social" || type === "workflow") {
-      return requestJSON("/missions/social-manager", {
-        method: "POST",
-        body: JSON.stringify({ user_id, prompt, ...payload }),
-      });
-    }
-    return requestJSON("/auth/gemini/generate", {
+    const body = { user_id, prompt, mission_type: type, context: payload };
+
+    // Route structured missions to their dedicated endpoints first
+    const structuredRoutes = {
+      travel: "/missions/travel-concierge",
+      shopping: "/missions/shopping-scout",
+      gifts: "/missions/gift-scout",
+      social: "/missions/social-manager",
+      workflow: "/missions/social-manager",
+    };
+
+    // Use the streaming endpoint for all missions
+    const resp = await fetch(`${API_BASE}/missions/execute/stream`, {
       method: "POST",
-      body: JSON.stringify({ user_id, prompt, mission: type }),
-      headers: { Authorization: "Bearer demo-token" },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(txt || `Mission failed: ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulated = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value, { stream: true }).split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data:")) {
+          try {
+            const json = JSON.parse(line.slice(5).trim());
+            if (json.text) {
+              accumulated += json.text;
+              onChunk(accumulated);
+            }
+            if (json.error) throw new Error(json.error);
+          } catch (e) { /* skip malformed chunks */ }
+        }
+      }
+    }
+    return { status: "ok", text: accumulated };
   }
 
   function splitList(value) {
@@ -787,13 +801,7 @@
     }).join("");
   }
 
-  function addMessage(role, content) {
-    const node = document.createElement("div");
-    node.className = `message ${role}`;
-    node.innerHTML = content;
-    els.chatThread.appendChild(node);
-    node.scrollIntoView({ block: "nearest" });
-  }
+
 
   function notify(title, body, unread = true, view = "messages") {
     state.notifications.unshift({ id: `n-${Date.now()}`, title, body, unread, view });
@@ -858,8 +866,62 @@
     `;
   }
 
-  function softPause() {
-    return new Promise((resolve) => setTimeout(resolve, 420));
+  function softPause(ms = 420) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function formatMarkdown(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/^#{1,3}\s+(.+)$/gm, "<h4>$1</h4>")
+      .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
+      .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/\n/g, "<br>")
+      .replace(/^(?!<[hul])(.+)/, "<p>$1</p>");
+  }
+
+  function addMessage(role, content) {
+    const node = document.createElement("div");
+    node.className = `message ${role}`;
+    node.innerHTML = content;
+    els.chatThread.appendChild(node);
+    node.scrollIntoView({ block: "nearest" });
+    // Animate in
+    node.style.opacity = "0";
+    node.style.transform = "translateY(10px)";
+    requestAnimationFrame(() => {
+      node.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+      node.style.opacity = "1";
+      node.style.transform = "translateY(0)";
+    });
+    return node;
+  }
+
+  function addThinkingBubble() {
+    const node = document.createElement("div");
+    node.className = "message agent thinking";
+    node.innerHTML = `
+      <span class="dot-pulse"></span>
+      <span class="dot-pulse" style="animation-delay:0.15s"></span>
+      <span class="dot-pulse" style="animation-delay:0.3s"></span>
+      <span style="margin-left:8px;color:var(--muted);font-size:0.85em">Thinking...</span>
+    `;
+    els.chatThread.appendChild(node);
+    node.scrollIntoView({ block: "nearest" });
+    return node;
+  }
+
+  function addStreamBubble() {
+    const node = document.createElement("div");
+    node.className = "message agent stream-bubble";
+    node.innerHTML = "";
+    els.chatThread.appendChild(node);
+    node.scrollIntoView({ block: "nearest" });
+    return node;
   }
 
   async function loadArchitecture() {

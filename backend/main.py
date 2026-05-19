@@ -1,38 +1,41 @@
+import os
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+import httpx
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from playwright.async_api import async_playwright
 
 from superpowers.arize_monitor import ArizeMonitor
 from superpowers.elastic_search import ElasticSearch
 from superpowers.fivetran_pipeline import FivetranPipeline
-from superpowers.gitlab_sync import GitLabSync
 from superpowers.mongo_vault import MongoVault
 from backend.orchestrator import MasterOrchestrator, serialize_agents
-
-
 from backend.auth import router as auth_router
 
 ROOT = Path(__file__).resolve().parents[1]
-MISSION_SCRIPT = ROOT / "missions" / "gitlab_registration.py"
+
+# ── Env vars ────────────────────────────────────────────────────────────────
+GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_MODEL    = "gemini-2.0-flash"
 
 app = FastAPI(title="Dash Agent Mission Orchestrator")
 app.include_router(auth_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to the frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
-# OWASP Security Headers
+# ── Security headers ─────────────────────────────────────────────────────────
 @app.middleware("http")
 async def add_security_headers(request, call_next):
     response = await call_next(request)
@@ -40,23 +43,94 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:8000;"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com "
+        "https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "script-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self' https://generativelanguage.googleapis.com;"
+    )
     return response
 
 
-@app.get("/")
-async def serve_index():
-    return FileResponse(ROOT / "index.html")
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-class MissionRequest(BaseModel):
-    user_id: str = "demo-user"
-    query: str = "Register my GitLab account and provision my mission repo."
-    verification_completed: bool = False
+async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL) -> str:
+    """Call Gemini with the server API key. Raises HTTPException if not configured."""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured on the server.")
+
+    contents = []
+    if system:
+        contents.append({"role": "user", "parts": [{"text": system}]})
+        contents.append({"role": "model", "parts": [{"text": "Understood."}]})
+    contents.append({"role": "user", "parts": [{"text": prompt}]})
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048},
+    }
+    url = f"{GEMINI_API_BASE}/models/{model}:generateContent?key={GEMINI_API_KEY}"
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(url, json=payload)
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+    data = resp.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
+
+
+async def gemini_stream(prompt: str, system: str = "", model: str = GEMINI_MODEL):
+    """Generator that yields Server-Sent Event chunks from Gemini streaming API."""
+    if not GEMINI_API_KEY:
+        yield f"data: {json.dumps({'error': 'GEMINI_API_KEY not configured'})}\n\n"
+        return
+
+    contents = []
+    if system:
+        contents.append({"role": "user", "parts": [{"text": system}]})
+        contents.append({"role": "model", "parts": [{"text": "Understood."}]})
+    contents.append({"role": "user", "parts": [{"text": prompt}]})
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048},
+    }
+    url = f"{GEMINI_API_BASE}/models/{model}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        async with client.stream("POST", url, json=payload) as resp:
+            async for line in resp.aiter_lines():
+                if line.startswith("data:"):
+                    raw = line[5:].strip()
+                    if raw == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(raw)
+                        text = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
+                        if text:
+                            yield f"data: {json.dumps({'text': text})}\n\n"
+                    except Exception:
+                        pass
+
+
+# ── Models ────────────────────────────────────────────────────────────────────
+class MissionExecuteRequest(BaseModel):
+    user_id: str = "anonymous"
+    prompt: str
+    mission_type: str = "task"
+    context: dict = Field(default_factory=dict)
 
 
 class UserRegistrationRequest(BaseModel):
-    user_id: str = "demo-user"
+    user_id: str
     display_name: str | None = None
     primary_email: str | None = None
     auth_provider: str = "email"
@@ -67,7 +141,7 @@ class UserRegistrationRequest(BaseModel):
 
 
 class GiftScoutRequest(BaseModel):
-    user_id: str = "demo-user"
+    user_id: str = "anonymous"
     friend_name: str | None = None
     occasion: str | None = None
     budget: str | None = None
@@ -80,7 +154,7 @@ class GiftScoutRequest(BaseModel):
 
 
 class ShoppingScoutRequest(BaseModel):
-    user_id: str = "demo-user"
+    user_id: str = "anonymous"
     item: str | None = None
     budget: str | None = None
     shipping_country: str | None = None
@@ -88,22 +162,32 @@ class ShoppingScoutRequest(BaseModel):
     constraints: list[str] = Field(default_factory=list)
 
 
+class TravelRequest(BaseModel):
+    user_id: str = "anonymous"
+    origin: str | None = None
+    destination: str | None = None
+    dates: str | None = None
+    budget: str | None = None
+    prompt: str | None = None
+
+
+class SocialRequest(BaseModel):
+    user_id: str = "anonymous"
+    prompt: str
+    goal: str | None = None
+    platforms: str | None = None
+    cadence: str | None = None
+
+
 class GitHubSyncRequest(BaseModel):
-    user_id: str = "demo-user"
+    user_id: str = "anonymous"
     github_connection_ready: bool = False
     selected_repositories: list[str] = Field(default_factory=list)
     include_private_repositories: bool = False
 
 
-class DataContextRequest(BaseModel):
-    user_id: str = "demo-user"
-    allowed_sources: list[str] = Field(default_factory=list)
-    allowed_scopes: list[str] = Field(default_factory=list)
-    context_expiry_days: int = 30
-
-
 class AccountResolverRequest(BaseModel):
-    user_id: str = "demo-user"
+    user_id: str = "anonymous"
     service_name: str
     service_url: str | None = None
     account_creation_allowed: bool = False
@@ -113,22 +197,20 @@ class AccountResolverRequest(BaseModel):
     required_action: str | None = None
 
 
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+class DeconstructRequest(BaseModel):
+    url: str
+    timeout: int = 30
 
 
-def phase(name: str, status: str, detail: str) -> dict[str, str]:
-    return {
-        "name": name,
-        "status": status,
-        "detail": detail,
-        "timestamp": utc_now(),
-    }
+# ── Core routes ────────────────────────────────────────────────────────────────
+@app.get("/")
+async def serve_index():
+    return FileResponse(ROOT / "index.html")
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "dash-agent"}
+    return {"status": "ok", "service": "dash-agent", "gemini_configured": bool(GEMINI_API_KEY)}
 
 
 @app.get("/architecture")
@@ -153,15 +235,99 @@ async def architecture() -> dict[str, Any]:
             "gift-scout": serialize_agents(orchestrator.plan("gift-scout")),
             "shopping-scout": serialize_agents(orchestrator.plan("shopping-scout")),
         },
-        "brain": "Google Cloud Agent Builder (Gemini 3)",
+        "brain": "Gemini 2.0 Flash",
         "superpowers": ["MongoDB", "Elastic", "Arize", "Fivetran"],
     }
 
 
+# ── Universal streaming mission executor ──────────────────────────────────────
+@app.post("/missions/execute/stream")
+async def execute_mission_stream(req: MissionExecuteRequest):
+    """Real Gemini streaming endpoint for all mission types."""
+    monitor = ArizeMonitor()
+    vault = MongoVault()
+    mission_id = f"{req.mission_type}-{req.user_id}-{utc_now()}"
+
+    SYSTEM_PROMPTS = {
+        "task": (
+            "You are Dash, a silent power agent. Respond concisely and helpfully. "
+            "Give real, actionable results. Be specific with names, prices, links, comparisons. "
+            "Format response in clear sections with emojis. Never say you cannot browse the web — "
+            "give the best real-world answer you can with your knowledge."
+        ),
+        "shopping": (
+            "You are Dash, a shopping scout agent. The user wants to find the best products. "
+            "Give specific product recommendations with estimated prices, pros/cons, where to buy, "
+            "and delivery notes. Format clearly. Recommend top 3-5 options. "
+            "End with a clear 'Best Pick' recommendation."
+        ),
+        "travel": (
+            "You are Dash, a travel concierge agent. Give specific, actionable travel recommendations. "
+            "Include airline options, approximate prices, hotel suggestions, and timing tips. "
+            "Format with clear sections. Be practical and specific."
+        ),
+        "gifts": (
+            "You are Dash, a gift scout agent. Recommend specific, thoughtful gifts. "
+            "Include product names, estimated prices, where to buy, and why each fits. "
+            "Format as a ranked list. End with your top pick."
+        ),
+        "social": (
+            "You are Dash, a social media strategist. Create actual draft content, post ideas, "
+            "and a content calendar outline. Be specific and ready-to-use."
+        ),
+        "workflow": (
+            "You are Dash, a workflow architect. Design a concrete, actionable recurring workflow. "
+            "Include trigger conditions, steps, tools, checkpoints, and automation opportunities. "
+            "Be specific about what runs automatically vs what requires human approval."
+        ),
+    }
+
+    system = SYSTEM_PROMPTS.get(req.mission_type, SYSTEM_PROMPTS["task"])
+
+    # Log to Arize (non-blocking)
+    try:
+        await monitor.log_reasoning_trace(mission_id, [req.prompt[:200]])
+    except Exception:
+        pass
+
+    # Store mission state in MongoDB (non-blocking)
+    try:
+        await vault.store_mission_state(mission_id, {
+            "type": req.mission_type,
+            "prompt": req.prompt[:500],
+            "context": req.context,
+            "status": "running",
+        })
+    except Exception:
+        pass
+
+    return StreamingResponse(
+        gemini_stream(req.prompt, system),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── Non-streaming mission execute (fallback) ─────────────────────────────────
+@app.post("/missions/execute")
+async def execute_mission(req: MissionExecuteRequest) -> dict[str, Any]:
+    """Fallback non-streaming mission endpoint."""
+    SYSTEM_PROMPTS = {
+        "task": "You are Dash, a silent power agent. Respond concisely and helpfully with real, actionable results.",
+        "shopping": "You are Dash, a shopping scout. Give specific product recommendations with prices and where to buy.",
+        "travel": "You are Dash, a travel concierge. Give specific, actionable travel recommendations with prices.",
+        "gifts": "You are Dash, a gift scout. Recommend specific gifts with prices and where to buy.",
+        "social": "You are Dash, a social media strategist. Create actual draft content and a content calendar.",
+        "workflow": "You are Dash, a workflow architect. Design a concrete, actionable recurring workflow.",
+    }
+    system = SYSTEM_PROMPTS.get(req.mission_type, SYSTEM_PROMPTS["task"])
+    text = await gemini(req.prompt, system)
+    return {"status": "ok", "text": text, "mission_type": req.mission_type}
+
+
+# ── User registration ─────────────────────────────────────────────────────────
 @app.post("/users/register")
 async def register_user(request: UserRegistrationRequest) -> dict[str, Any]:
-    user_id = request.user_id
-    orchestrator = MasterOrchestrator()
     vault = MongoVault()
     monitor = ArizeMonitor()
     pipeline = FivetranPipeline()
@@ -176,473 +342,229 @@ async def register_user(request: UserRegistrationRequest) -> dict[str, Any]:
         "mission_goals": request.mission_goals,
     }
 
-    user_record = await vault.register_user(user_id, profile)
-    context_records = [
-        await vault.store_context_source(user_id, {
-            "provider": source,
-            "scope": "user-approved-context",
-            "status": "authorized_reference_pending" if source in {"google", "apple", "github"} else "available",
-        })
-        for source in request.authorized_sources
-    ]
+    user_record = await vault.register_user(request.user_id, profile)
 
-    await monitor.log_reasoning_trace(
-        f"user-registration-{user_id}",
-        [
-            "Create the MongoDB Mission Vault profile first.",
+    try:
+        await monitor.log_reasoning_trace(f"user-registration-{request.user_id}", [
+            "Create MongoDB Mission Vault profile.",
             "Attach only user-authorized context sources.",
-            "Route future requests to lightweight mission sub-agents.",
-            "Keep raw account passwords and tokens out of logs and chat.",
-        ],
-    )
-    await pipeline.stream_mission_data(f"user-registration-{user_id}", {
-        "mission": "user-registration",
-        "auth_provider": request.auth_provider,
-        "authorized_source_count": len(request.authorized_sources),
-        "mission_goal_count": len(request.mission_goals),
-    })
+        ])
+        await pipeline.stream_mission_data(f"user-registration-{request.user_id}", {
+            "mission": "user-registration",
+            "auth_provider": request.auth_provider,
+        })
+    except Exception:
+        pass
 
     return {
         "status": "registered",
-        "user_id": user_id,
+        "user_id": request.user_id,
         "vault": user_record,
-        "context_sources": context_records,
-        "subagents": serialize_agents(orchestrator.plan("user-registration")),
         "next_action": "Route the user's first mission through Dash-1.",
     }
 
 
-@app.post("/missions/travel-concierge")
-async def travel_concierge_mission(request: dict) -> dict:
-    """
-    Spawns 3 parallel Travel Scout sub-agents: flights, hotels, Airbnb.
-    Returns synthesised best-value package combinations.
-    """
-    user_id = request.get("user_id", "demo-user")
-    mission_id = f"travel-{user_id}"
-    vault = MongoVault()
-    monitor = ArizeMonitor()
-    search = ElasticSearch()
-    pipeline = FivetranPipeline()
-
-    await monitor.log_reasoning_trace(mission_id, [
-        "Spawn Scout-1 for flights (Expedia, Google Flights).",
-        "Spawn Scout-2 for hotels (Booking.com, Hotels.com).",
-        "Spawn Scout-3 for Airbnb.",
-        "Compare real-time prices across cheapest date windows.",
-        "Synthesise best package combos using vault travel prefs.",
-        "Stop before booking for explicit user confirmation.",
-    ])
-    flight_pattern = await search.find_dom_pattern("expedia", "flight_search_results")
-    hotel_pattern  = await search.find_dom_pattern("booking.com", "hotel_search_results")
-    await vault.store_mission_state(mission_id, {"status": "scouts_running", **request})
-    await pipeline.stream_mission_data(mission_id, {"mission": "travel-concierge", "scouts": 3})
-
-    return {
-        "status": "scouts_running",
-        "mission_id": mission_id,
-        "scouts": [
-            {"id": "scout-1", "target": "flights",  "sources": ["Expedia", "Google Flights"]},
-            {"id": "scout-2", "target": "hotels",   "sources": ["Booking.com", "Hotels.com"]},
-            {"id": "scout-3", "target": "airbnb",   "sources": ["Airbnb"]},
-        ],
-        "insight": "Mid-week departures are typically 15-20% cheaper. Bundle saves avg $200+.",
-        "next_action": "Synthesise results and present top 3 packages for user approval.",
-        "dom_patterns": {"flights": flight_pattern, "hotels": hotel_pattern},
-    }
-
-
-@app.post("/missions/social-manager")
-async def social_manager_mission(request: dict) -> dict:
-    """Creates or updates a permanent social media workflow."""
-    user_id = request.get("user_id", "demo-user")
-    mission_id = f"social-{user_id}"
-    vault = MongoVault()
-    monitor = ArizeMonitor()
-    pipeline = FivetranPipeline()
-
-    await monitor.log_reasoning_trace(mission_id, [
-        "Load social context and past content style from vault.",
-        "Brainstorm post ideas with Gemini using user tone/brand.",
-        "Draft content for user approval before publishing.",
-        "Schedule approved posts via platform APIs.",
-        "Save workflow frequency and platform config to vault.",
-    ])
-    await vault.store_mission_state(mission_id, {"status": "workflow_active", **request})
-    await pipeline.stream_mission_data(mission_id, {"mission": "social-manager"})
-
-    return {
-        "status": "workflow_active",
-        "mission_id": mission_id,
-        "next_action": "Draft 3 post options for approval before scheduling.",
-    }
-
-
-
-@app.post("/missions/gift-scout")
-async def gift_scout_mission(request: GiftScoutRequest) -> dict[str, Any]:
-    """
-    Consumer mission: choose a high-fit gift at the best practical price.
-
-    Dash never stores raw Instagram/Facebook credentials. It can use public
-    links, user exports, OAuth/session handoff, or a fallback questionnaire.
-    """
-    mission_id = f"gift-scout-{request.user_id}"
-    orchestrator = MasterOrchestrator()
-    vault = MongoVault()
-    monitor = ArizeMonitor()
-    search = ElasticSearch()
-    pipeline = FivetranPipeline()
-
-    allowed_social_context = bool(request.public_social_links or request.connected_social_session)
-    missing_questions = []
-    if not allowed_social_context and not request.age_range:
-        missing_questions.append("What is your friend's age range?")
-    if not allowed_social_context and not request.interests:
-        missing_questions.append("What hobbies, fandoms, brands, or styles do they like?")
-    if not request.budget:
-        missing_questions.append("What budget should I stay under?")
-    if not request.occasion:
-        missing_questions.append("What is the occasion?")
-    if not request.shipping_country:
-        missing_questions.append("Where does the gift need to ship?")
-
-    await monitor.log_reasoning_trace(
-        mission_id,
-        [
-            "Start with consented friend context.",
-            "Prefer public links, exports, or browser session handoff over raw social credentials.",
-            "Fallback to age, relationship, occasion, budget, interests, and shipping country.",
-            "Rank candidates by fit confidence, price, delivery confidence, and seller reliability.",
-            "Stop before checkout for explicit user confirmation.",
-        ],
-    )
-
-    await vault.store_mission_state(mission_id, {
-        "friend_name": request.friend_name,
-        "occasion": request.occasion,
-        "budget": request.budget,
-        "relationship": request.relationship,
-        "age_range": request.age_range,
-        "interests": request.interests,
-        "public_social_links_count": len(request.public_social_links),
-        "connected_social_session": request.connected_social_session,
-        "shipping_country": request.shipping_country,
-    })
-
-    product_pattern = await search.find_dom_pattern("shopping", "product_card_price_shipping")
-    await pipeline.stream_mission_data(mission_id, {
-        "mission": "gift-scout",
-        "status": "needs_context" if missing_questions else "ready_to_recommend",
-        "allowed_social_context": allowed_social_context,
-        "missing_question_count": len(missing_questions),
-    })
-
-    if missing_questions:
-        return {
-            "status": "needs_context",
-            "mission_id": mission_id,
-            "subagents": serialize_agents(orchestrator.plan("gift-scout")),
-            "allowed_context": {
-                "public_social_links": request.public_social_links,
-                "connected_social_session": request.connected_social_session,
-                "raw_social_passwords_stored": False,
-            },
-            "questions": missing_questions,
-        }
-
-    return {
-        "status": "ready_to_recommend",
-        "mission_id": mission_id,
-        "subagents": serialize_agents(orchestrator.plan("gift-scout")),
-        "ranking_model": {
-            "fit_confidence": "interest overlap, relationship, occasion, novelty",
-            "price_score": "total landed cost against budget",
-            "delivery_confidence": "shipping speed, destination, seller reliability",
-            "risk_flags": "fragile, sizing uncertainty, low seller trust, late delivery",
-        },
-        "next_action": "Search candidate products, rank top options, and ask for approval before checkout.",
-        "product_pattern": product_pattern,
-    }
-
-
+# ── Shopping scout (uses real Gemini) ─────────────────────────────────────────
 @app.post("/missions/shopping-scout")
 async def shopping_scout_mission(request: ShoppingScoutRequest) -> dict[str, Any]:
-    """Consumer mission: compare products, shipping, and checkout risk."""
-    mission_id = f"shopping-scout-{request.user_id}"
-    orchestrator = MasterOrchestrator()
-    vault = MongoVault()
+    mission_id = f"shopping-{request.user_id}"
     monitor = ArizeMonitor()
-    search = ElasticSearch()
+    vault = MongoVault()
     pipeline = FivetranPipeline()
 
-    missing_questions = []
-    if not request.item:
-        missing_questions.append("What item, category, or problem should I shop for?")
-    if not request.budget:
-        missing_questions.append("What budget or price ceiling should I respect?")
-    if not request.shipping_country:
-        missing_questions.append("Where does this need to ship?")
-
-    await monitor.log_reasoning_trace(
-        mission_id,
-        [
-            "Map the purchase request into item, budget, region, and risk constraints.",
-            "Apply international shipping and delivery-confidence filters when relevant.",
-            "Compare total landed cost, seller reliability, return policy, and delivery confidence.",
-            "Prepare recommendations or carts but stop before checkout or payment.",
-        ],
+    prompt = (
+        f"Find the best options for: {request.item or 'unspecified item'}. "
+        f"Budget: {request.budget or 'flexible'}. "
+        f"Ship to: {request.shipping_country or 'United States'}. "
+        f"Preference: {request.preference or 'best overall'}. "
+        f"Constraints: {', '.join(request.constraints) if request.constraints else 'none'}. "
+        "Give me the top 3-5 specific products with estimated prices, pros/cons, and where to buy."
     )
 
-    await vault.store_mission_state(mission_id, {
-        "item": request.item,
-        "budget": request.budget,
-        "shipping_country": request.shipping_country,
-        "preference": request.preference,
-        "constraints": request.constraints,
-    })
+    text = await gemini(prompt, "You are Dash, a shopping scout agent. Be specific with real product names and prices.")
 
-    product_pattern = await search.find_dom_pattern("shopping", "product_card_price_shipping")
-    await pipeline.stream_mission_data(mission_id, {
-        "mission": "shopping-scout",
-        "status": "needs_context" if missing_questions else "ready_to_compare",
-        "constraint_count": len(request.constraints),
-    })
+    try:
+        await monitor.log_reasoning_trace(mission_id, [prompt[:200]])
+        await vault.store_mission_state(mission_id, {"item": request.item, "status": "completed"})
+        await pipeline.stream_mission_data(mission_id, {"mission": "shopping-scout", "item": request.item})
+    except Exception:
+        pass
 
-    if missing_questions:
-        return {
-            "status": "needs_context",
-            "mission_id": mission_id,
-            "subagents": serialize_agents(orchestrator.plan("shopping-scout")),
-            "questions": missing_questions,
-            "payment_policy": "prepare_only_until_explicit_confirmation",
-        }
-
-    return {
-        "status": "ready_to_compare",
-        "mission_id": mission_id,
-        "subagents": serialize_agents(orchestrator.plan("shopping-scout")),
-        "ranking_model": {
-            "price_score": "total landed cost against budget",
-            "delivery_confidence": "shipping speed, destination, stock, and seller history",
-            "seller_reliability": "rating, return policy, marketplace risk, and support signals",
-            "fit_score": "user preference, reviews, specs, and ambiguity tolerance",
-        },
-        "next_action": "Search products, compare landed cost and delivery risk, then present a shortlist before checkout.",
-        "product_pattern": product_pattern,
-    }
+    return {"status": "ok", "text": text, "mission_id": mission_id, "next_action": "Review recommendations and approve before checkout."}
 
 
+# ── Travel concierge (uses real Gemini) ──────────────────────────────────────
+@app.post("/missions/travel-concierge")
+async def travel_concierge_mission(request: TravelRequest) -> dict[str, Any]:
+    mission_id = f"travel-{request.user_id}"
+    monitor = ArizeMonitor()
+    vault = MongoVault()
+    pipeline = FivetranPipeline()
+
+    prompt = request.prompt or (
+        f"Plan a trip from {request.origin or 'flexible origin'} "
+        f"to {request.destination or 'a great destination'}. "
+        f"Dates/window: {request.dates or 'flexible'}. "
+        f"Budget: {request.budget or 'flexible'}. "
+        "Give specific flight options, hotel recommendations, and timing tips with approximate prices."
+    )
+
+    text = await gemini(prompt, "You are Dash, a travel concierge agent. Give specific, practical travel recommendations with prices.")
+
+    try:
+        await monitor.log_reasoning_trace(mission_id, [prompt[:200]])
+        await vault.store_mission_state(mission_id, {"destination": request.destination, "status": "completed"})
+        await pipeline.stream_mission_data(mission_id, {"mission": "travel-concierge"})
+    except Exception:
+        pass
+
+    return {"status": "ok", "text": text, "mission_id": mission_id, "next_action": "Review options. Approval required before booking."}
+
+
+# ── Gift scout (uses real Gemini) ─────────────────────────────────────────────
+@app.post("/missions/gift-scout")
+async def gift_scout_mission(request: GiftScoutRequest) -> dict[str, Any]:
+    mission_id = f"gift-{request.user_id}"
+    monitor = ArizeMonitor()
+    vault = MongoVault()
+    pipeline = FivetranPipeline()
+
+    prompt = (
+        f"Find the perfect gift for {request.friend_name or 'someone special'}. "
+        f"Occasion: {request.occasion or 'general'}. "
+        f"Age range: {request.age_range or 'adult'}. "
+        f"Budget: {request.budget or 'flexible'}. "
+        f"Ship to: {request.shipping_country or 'United States'}. "
+        f"Interests: {', '.join(request.interests) if request.interests else 'unknown'}. "
+        "Recommend 3-5 specific gifts with names, prices, where to buy, and why each fits."
+    )
+
+    text = await gemini(prompt, "You are Dash, a gift scout agent. Give specific gift recommendations with product names, prices, and where to buy.")
+
+    try:
+        await monitor.log_reasoning_trace(mission_id, [prompt[:200]])
+        await vault.store_mission_state(mission_id, {"occasion": request.occasion, "status": "completed"})
+        await pipeline.stream_mission_data(mission_id, {"mission": "gift-scout"})
+    except Exception:
+        pass
+
+    return {"status": "ok", "text": text, "mission_id": mission_id, "next_action": "Review gift shortlist. Approval required before checkout."}
+
+
+# ── Social manager (uses real Gemini) ─────────────────────────────────────────
+@app.post("/missions/social-manager")
+async def social_manager_mission(request: SocialRequest) -> dict[str, Any]:
+    mission_id = f"social-{request.user_id}"
+    monitor = ArizeMonitor()
+    vault = MongoVault()
+    pipeline = FivetranPipeline()
+
+    prompt = (
+        f"Help with: {request.prompt}. "
+        f"Goal: {request.goal or 'grow social presence'}. "
+        f"Platforms: {request.platforms or 'LinkedIn, Instagram'}. "
+        f"Cadence: {request.cadence or 'weekly'}. "
+        "Create actual draft posts, a content calendar outline, and a posting strategy."
+    )
+
+    text = await gemini(prompt, "You are Dash, a social media strategist. Create actual, ready-to-use content drafts and strategies.")
+
+    try:
+        await monitor.log_reasoning_trace(mission_id, [prompt[:200]])
+        await vault.store_mission_state(mission_id, {"goal": request.goal, "status": "completed"})
+        await pipeline.stream_mission_data(mission_id, {"mission": "social-manager"})
+    except Exception:
+        pass
+
+    return {"status": "ok", "text": text, "mission_id": mission_id, "next_action": "Review content drafts. Approval required before publishing."}
+
+
+# ── GitHub sync ────────────────────────────────────────────────────────────────
 @app.post("/missions/github-sync")
 async def github_sync_mission(request: GitHubSyncRequest) -> dict[str, Any]:
     mission_id = f"github-sync-{request.user_id}"
-    orchestrator = MasterOrchestrator()
     vault = MongoVault()
-    monitor = ArizeMonitor()
-    pipeline = FivetranPipeline()
-
-    await monitor.log_reasoning_trace(
-        mission_id,
-        [
-            "Do not ask for a GitHub password.",
-            "Offer OAuth, a vault-stored token, or browser session handoff.",
-            "List only repositories the user authorizes.",
-            "Ask before importing or mirroring into GitLab.",
-        ],
-    )
-    await vault.store_mission_state(mission_id, {
-        "github_connection_ready": request.github_connection_ready,
-        "selected_repositories": request.selected_repositories,
-        "include_private_repositories": request.include_private_repositories,
-    })
-    await pipeline.stream_mission_data(mission_id, {
-        "mission": "github-sync",
-        "github_connection_ready": request.github_connection_ready,
-        "selected_repository_count": len(request.selected_repositories),
-    })
+    orchestrator = MasterOrchestrator()
 
     if not request.github_connection_ready:
         return {
             "status": "needs_github_connection",
             "mission_id": mission_id,
-            "subagents": serialize_agents(orchestrator.plan("github-sync")),
-            "connection_options": [
-                "GitHub OAuth",
-                "Personal access token stored in the Mission Vault",
-                "Browser session handoff",
-            ],
-            "next_action": "Ask the user to choose a GitHub connection method.",
+            "connection_options": ["GitHub OAuth", "Personal access token", "Browser session handoff"],
+            "next_action": "Choose a GitHub connection method.",
         }
 
-    if not request.selected_repositories:
-        return {
-            "status": "needs_repository_selection",
-            "mission_id": mission_id,
-            "subagents": serialize_agents(orchestrator.plan("github-sync")),
-            "next_action": "List authorized repositories and ask which ones to sync into GitLab.",
-        }
+    await vault.store_mission_state(mission_id, {
+        "selected_repositories": request.selected_repositories,
+        "status": "ready_to_sync",
+    })
 
     return {
         "status": "ready_to_sync",
         "mission_id": mission_id,
         "subagents": serialize_agents(orchestrator.plan("github-sync")),
-        "next_action": "Create matching GitLab projects and sync the selected repositories.",
+        "next_action": "Sync selected repositories to GitLab.",
     }
 
 
-@app.post("/context/intake")
-async def data_context_intake(request: DataContextRequest) -> dict[str, Any]:
-    mission_id = f"data-context-{request.user_id}"
-    orchestrator = MasterOrchestrator()
-    vault = MongoVault()
-    monitor = ArizeMonitor()
-    pipeline = FivetranPipeline()
-
-    if not request.allowed_sources:
-        return {
-            "status": "needs_consent",
-            "mission_id": mission_id,
-            "subagents": serialize_agents(orchestrator.plan("data-context")),
-            "source_options": [
-                "Google account via OAuth",
-                "Apple account via Sign in with Apple",
-                "GitHub via OAuth or vault-stored token",
-                "Public social links",
-                "User-uploaded exports",
-                "Manual preferences questionnaire",
-            ],
-            "default_scopes": [
-                "basic profile",
-                "contacts selected by user",
-                "calendar availability if scheduling is needed",
-                "purchase/shipping preferences entered by user",
-            ],
-            "raw_passwords_stored": False,
-        }
-
-    await monitor.log_reasoning_trace(
-        mission_id,
-        [
-            "Collect only user-approved sources.",
-            "Normalize context into preferences and constraints.",
-            "Store source, consent, expiry, and deletion metadata.",
-        ],
-    )
-    await vault.store_mission_state(mission_id, {
-        "allowed_sources": request.allowed_sources,
-        "allowed_scopes": request.allowed_scopes,
-        "context_expiry_days": request.context_expiry_days,
-    })
-    await pipeline.stream_mission_data(mission_id, {
-        "mission": "data-context",
-        "allowed_source_count": len(request.allowed_sources),
-        "allowed_scope_count": len(request.allowed_scopes),
-        "context_expiry_days": request.context_expiry_days,
-    })
-
-    return {
-        "status": "context_ready",
-        "mission_id": mission_id,
-        "subagents": serialize_agents(orchestrator.plan("data-context")),
-        "next_action": "Use the approved context to personalize future missions.",
-    }
-
-
+# ── Account resolver ──────────────────────────────────────────────────────────
 @app.post("/missions/account-resolver")
 async def account_resolver_mission(request: AccountResolverRequest) -> dict[str, Any]:
-    mission_id = f"account-resolver-{request.user_id}-{request.service_name.lower().replace(' ', '-')}"
-    orchestrator = MasterOrchestrator()
+    mission_id = f"account-{request.user_id}-{request.service_name}"
     vault = MongoVault()
-    monitor = ArizeMonitor()
-    search = ElasticSearch()
-    pipeline = FivetranPipeline()
-
-    await monitor.log_reasoning_trace(
-        mission_id,
-        [
-            "Check the Mission Vault for an existing account or session.",
-            "If missing, ask for explicit account creation approval.",
-            "Deconstruct forms by text, accessible names, ARIA roles, and semantic input types.",
-            "Do not expose DOM snippets, logs, passwords, or tokens to the user.",
-            "Detect CAPTCHA, MFA, or email verification and pause for human completion.",
-        ],
-    )
-
-    dom_pattern = await search.find_dom_pattern(
-        request.service_url or request.service_name,
-        "account_registration_or_login",
-    )
+    orchestrator = MasterOrchestrator()
 
     await vault.store_mission_state(mission_id, {
         "service_name": request.service_name,
-        "service_url": request.service_url,
         "account_creation_allowed": request.account_creation_allowed,
-        "known_account_hint": bool(request.known_account_hint),
-        "authorized_credential_ref": bool(request.authorized_credential_ref),
-        "authorized_session_ref": bool(request.authorized_session_ref),
-        "required_action": request.required_action,
-    })
-    await pipeline.stream_mission_data(mission_id, {
-        "mission": "account-resolver",
-        "service_name": request.service_name,
-        "account_creation_allowed": request.account_creation_allowed,
-        "has_authorized_account_context": bool(
-            request.known_account_hint or request.authorized_credential_ref or request.authorized_session_ref
-        ),
     })
 
     if request.known_account_hint or request.authorized_credential_ref or request.authorized_session_ref:
         status = "account_context_available"
-        next_action = "Use the existing account context or session handoff for the requested mission."
+        next_action = "Use existing account context or session handoff."
     elif request.account_creation_allowed:
         status = "ready_to_create_account"
-        next_action = "Open the service, map the registration form, fill approved fields, and stop for human verification."
+        next_action = "Map the registration form and fill approved fields. Stop for human verification."
     else:
         status = "needs_account_permission"
-        next_action = "Ask whether the user wants to connect an existing account or create a new one."
+        next_action = "Ask whether to connect an existing account or create a new one."
 
     return {
         "status": status,
         "mission_id": mission_id,
         "subagents": serialize_agents(orchestrator.plan("account-resolver")),
-        "deconstruction_mode": "text_dom_accessibility_tree",
-        "credential_policy": "authorized_vault_or_session_reference_only",
-        "captcha_policy": "detect_pause_resume_after_human_completion",
-        "user_visible_output": "high_level_status_only",
-        "dom_pattern": dom_pattern,
         "next_action": next_action,
     }
 
 
-app.mount("/", StaticFiles(directory=str(ROOT), html=False), name="static-root")
-
-# Playwright DOM deconstruction endpoint
-class DeconstructRequest(BaseModel):
-    url: str
-    timeout: int = 30  # seconds
-
-async def deconstruct_dom(url: str, timeout: int = 30):
-    """Navigate to a page using Playwright and return a simplified DOM description.
-    Returns a list of interactive elements with key accessibility attributes.
-    """
+# ── DOM deconstruct ──────────────────────────────────────────────────────────
+@app.post("/dom/deconstruct")
+async def dom_deconstruct(req: DeconstructRequest):
     try:
+        from playwright.async_api import async_playwright
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await page.goto(url, timeout=timeout * 1000)
-            await page.wait_for_load_state('networkidle', timeout=timeout * 1000)
+            await page.goto(req.url, timeout=req.timeout * 1000)
+            await page.wait_for_load_state("networkidle", timeout=req.timeout * 1000)
             elements = await page.eval_on_selector_all(
                 "[role], input, button, a, select, textarea, form",
-                "els => els.map(el => ({\n                    tag: el.tagName.toLowerCase(),\n                    role: el.getAttribute('role') || null,\n                    name: el.getAttribute('name') || null,\n                    type: el.getAttribute('type') || null,\n                    placeholder: el.getAttribute('placeholder') || null,\n                    ariaLabel: el.getAttribute('aria-label') || null,\n                    text: el.innerText.trim() || null,\n                    id: el.id || null,\n                    classes: el.className || null\n                }))"
+                """els => els.map(el => ({
+                    tag: el.tagName.toLowerCase(),
+                    role: el.getAttribute('role') || null,
+                    name: el.getAttribute('name') || null,
+                    type: el.getAttribute('type') || null,
+                    placeholder: el.getAttribute('placeholder') || null,
+                    ariaLabel: el.getAttribute('aria-label') || null,
+                    text: (el.innerText || '').trim().slice(0, 100) || null,
+                    id: el.id || null,
+                }))"""
             )
             await browser.close()
-            return elements
+            return JSONResponse({"url": req.url, "elements": elements})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DOM deconstruction failed: {e}")
 
-@app.post("/dom/deconstruct")
-async def dom_deconstruct(req: DeconstructRequest):
-    elements = await deconstruct_dom(req.url, req.timeout)
-    return JSONResponse(content={"url": req.url, "elements": elements})
 
-
+# ── Static files (must be last) ───────────────────────────────────────────────
+app.mount("/", StaticFiles(directory=str(ROOT), html=False), name="static-root")
