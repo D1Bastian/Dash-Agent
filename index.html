@@ -1,468 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dash | Autonomous AI Agent</title>
-    <meta name="description" content="Dash — Your autonomous AI agent for travel, gifting, account management, and social media orchestration. Powered by Google Gemini.">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dash | Silent Power</title>
+  <meta name="description" content="Dash is a minimalist command surface for autonomous web, travel, shopping, account, and workflow missions.">
+  <link rel="stylesheet" href="style.css?v=2026051910">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-
-<!-- ══════════════════════════════════════
-     SCREEN 1: AUTH
-     ══════════════════════════════════════ -->
-<div id="screen-auth" class="screen active">
-    <div class="space-backdrop" id="space-backdrop">
-        <div class="starfield"></div>
+  <div class="ambient-layer" aria-hidden="true">
+    <div class="cloud-field">
+      <span class="cloud cloud-a"></span>
+      <span class="cloud cloud-b"></span>
+      <span class="cloud cloud-c"></span>
     </div>
-    <div class="auth-card">
-        <div class="auth-logo">Dash</div>
-        <p class="auth-tagline">Mission Vault · Autonomous Action · Human Checkpoints</p>
+    <div class="star-field"></div>
+    <div class="horizon-wash"></div>
+  </div>
 
-        <div class="social-btns">
-            <button class="social-btn google-btn" id="btn-google" data-provider="google">
-                <i class="fa-brands fa-google"></i> Continue with Google
-            </button>
-            <button class="social-btn apple-btn" id="btn-apple" data-provider="apple">
-                <i class="fa-brands fa-apple"></i> Continue with Apple
-            </button>
-        </div>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="brand" type="button" data-view="home" aria-label="Dash home">
+        <span class="brand-mark">D</span>
+        <span>Dash</span>
+      </button>
 
-        <div class="divider"><span>or</span></div>
-
-        <div class="auth-form">
-            <input type="text" id="auth-input" class="auth-input" placeholder="Email or phone number" autocomplete="email">
-            <button id="btn-continue" class="btn-primary">Continue <i class="fa-solid fa-arrow-right"></i></button>
-        </div>
-
-        <p class="auth-legal">By continuing, you agree to Dash's <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.</p>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════
-     SCREEN 2: GEMINI CONSENT
-     ══════════════════════════════════════ -->
-<div id="screen-consent" class="screen">
-    <div class="consent-wrapper">
-        <div class="consent-card">
-            <div class="consent-icon-ring">
-                <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini" width="40" height="40" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                <div class="gemini-fallback"><i class="fa-solid fa-sparkles"></i></div>
-            </div>
-            <h2 class="consent-title">Connect your Gemini account</h2>
-            <p class="consent-sub">Dash uses <strong>your</strong> Google Gemini account as its AI brain. Your data, your quota, your missions — Dash just orchestrates the action.</p>
-
-            <div class="consent-permissions">
-                <div class="perm-item">
-                    <div class="perm-icon"><i class="fa-solid fa-brain"></i></div>
-                    <div class="perm-text">
-                        <strong>AI Reasoning</strong>
-                        <span>Use Gemini to plan and orchestrate multi-step missions</span>
-                    </div>
-                </div>
-                <div class="perm-item">
-                    <div class="perm-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div class="perm-text">
-                        <strong>Secure Vault Storage</strong>
-                        <span>Save preferences to MongoDB — never raw passwords</span>
-                    </div>
-                </div>
-                <div class="perm-item">
-                    <div class="perm-icon"><i class="fa-solid fa-hand-pointer"></i></div>
-                    <div class="perm-text">
-                        <strong>Web Action on Your Behalf</strong>
-                        <span>Navigate, fill forms, and create accounts with your permission</span>
-                    </div>
-                </div>
-                <div class="perm-item">
-                    <div class="perm-icon"><i class="fa-solid fa-user-shield"></i></div>
-                    <div class="perm-text">
-                        <strong>Human Checkpoints</strong>
-                        <span>Dash always stops for CAPTCHA, MFA, and payment confirmation</span>
-                    </div>
-                </div>
-            </div>
-
-            <button id="btn-grant-consent" class="btn-primary full-width">
-                <i class="fa-brands fa-google"></i> Connect Google &amp; Authorize Gemini
-            </button>
-            <button id="btn-skip-consent" class="btn-ghost">Explore in demo mode first</button>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════
-     SCREEN 3: DASHBOARD
-     ══════════════════════════════════════ -->
-<div id="screen-dashboard" class="screen">
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-logo">Dash</div>
-        <nav class="sidebar-nav">
-            <button class="nav-item active" data-view="home" id="nav-home">
-                <i class="fa-solid fa-house"></i><span>Home</span>
-            </button>
-            <button class="nav-item" data-view="workflows" id="nav-workflows">
-                <i class="fa-solid fa-rotate"></i><span>Workflows</span>
-            </button>
-            <button class="nav-item" data-view="vault" id="nav-vault">
-                <i class="fa-solid fa-vault"></i><span>Mission Vault</span>
-            </button>
-            <button class="nav-item" data-view="missions" id="nav-missions">
-                <i class="fa-solid fa-list-check"></i><span>Missions</span>
-            </button>
+      <div class="arc-shell" aria-hidden="false">
+        <nav class="nav-links" aria-label="Primary">
+          <button type="button" class="nav-link is-active" data-view="agents">My Agents</button>
+          <button type="button" class="nav-link" data-view="workflows">Workflows</button>
+          <button type="button" class="nav-link" data-view="analytics">Analytics</button>
+          <button type="button" class="nav-link" data-view="team">Team</button>
+          <button type="button" class="nav-link" data-view="marketplace">Marketplace</button>
+          <button type="button" class="nav-link" data-view="settings">Settings</button>
         </nav>
-        <div class="sidebar-bottom">
-            <div class="vault-badge">
-                <i class="fa-solid fa-database"></i>
-                <span>MongoDB Vault</span>
-                <div class="vault-dot"></div>
-            </div>
-            <div class="user-row">
-                <div class="user-avatar" id="user-avatar">JD</div>
-                <div class="user-info">
-                    <div class="user-name" id="user-name">User</div>
-                    <div class="user-status">● Active</div>
-                </div>
-            </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" type="button" id="messages-btn" aria-label="Messages">
+          <i class="fa-regular fa-message"></i>
+          <span class="count-pill" id="message-count">0</span>
+        </button>
+        <button class="icon-btn" type="button" id="notifications-btn" aria-label="Notifications">
+          <i class="fa-regular fa-bell"></i>
+          <span class="count-pill" id="notification-count">0</span>
+        </button>
+        <button class="user-chip" type="button" id="user-profile-btn" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar-initials">SK</span>
+          <span class="user-label">Sarah K.</span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="dropdown-menu" id="profile-dropdown" hidden>
+        <div class="dropdown-header">
+          <strong>Sarah K.</strong>
+          <span>sarah@example.com</span>
         </div>
-    </aside>
+        <button type="button" class="dropdown-item" data-view="vault"><i class="fa-solid fa-vault"></i> Mission Vault</button>
+        <button type="button" class="dropdown-item" data-view="settings"><i class="fa-solid fa-sliders"></i> Preferences</button>
+        <button type="button" class="dropdown-item" data-action="connect-google"><i class="fa-brands fa-google"></i> Connect Google</button>
+      </div>
+    </header>
 
-    <!-- Main -->
-    <main class="dashboard-main">
-
-        <!-- ── HOME VIEW ── -->
-        <div class="view" id="view-home">
-            <header class="view-header">
-                <div>
-                    <h1 class="view-title">What's the mission?</h1>
-                    <p class="view-sub">Dash handles the complexity. You give the direction.</p>
-                </div>
-                <div class="partner-chips">
-                    <span class="partner-chip"><i class="fa-brands fa-google"></i> Gemini</span>
-                    <span class="partner-chip"><i class="fa-solid fa-database"></i> MongoDB</span>
-                    <span class="partner-chip"><i class="fa-brands fa-gitlab"></i> GitLab</span>
-                </div>
-            </header>
-
-            <!-- Chat thread -->
-            <div class="chat-thread" id="message-thread"></div>
-
-            <!-- Mission type cards -->
-            <div class="mission-cards" id="mission-cards">
-                <button class="mission-card" id="card-gift" data-mission="gift">
-                    <div class="card-icon gift-icon"><i class="fa-solid fa-gift"></i></div>
-                    <div class="card-content">
-                        <div class="card-title">Global Gift Scout</div>
-                        <div class="card-desc">Find & ship the perfect gift anywhere in the world</div>
-                    </div>
-                    <div class="card-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
-                <button class="mission-card" id="card-travel" data-mission="travel">
-                    <div class="card-icon travel-icon"><i class="fa-solid fa-plane-departure"></i></div>
-                    <div class="card-content">
-                        <div class="card-title">Travel Concierge</div>
-                        <div class="card-desc">Best flights, hotels & packages — Dash compares everything</div>
-                    </div>
-                    <div class="card-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
-                <button class="mission-card" id="card-account" data-mission="account">
-                    <div class="card-icon account-icon"><i class="fa-solid fa-user-plus"></i></div>
-                    <div class="card-content">
-                        <div class="card-title">Account Manager</div>
-                        <div class="card-desc">Create, manage & secure accounts across any platform</div>
-                    </div>
-                    <div class="card-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
-                <button class="mission-card" id="card-social" data-mission="social">
-                    <div class="card-icon social-icon"><i class="fa-solid fa-calendar-days"></i></div>
-                    <div class="card-content">
-                        <div class="card-title">Social Manager</div>
-                        <div class="card-desc">Schedule, create & publish content across platforms</div>
-                    </div>
-                    <div class="card-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
-            </div>
-
-            <!-- Input -->
-            <div class="chat-input-area">
-                <div class="input-wrapper" id="input-wrapper">
-                    <textarea id="command-input" placeholder="Describe your mission... e.g. 'Send a gift to my nephew in Trinidad'" rows="1"></textarea>
-                    <button id="execute-btn" class="execute-btn" aria-label="Execute mission">
-                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                    </button>
-                </div>
-                <div class="status-bar" id="status-area" style="display:none;">
-                    <div class="agent-phases" id="agent-phases">
-                        <div class="phase-dot active" id="phase-find" title="Finding">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </div>
-                        <div class="phase-line"></div>
-                        <div class="phase-dot" id="phase-read" title="Reading">
-                            <i class="fa-solid fa-eye"></i>
-                        </div>
-                        <div class="phase-line"></div>
-                        <div class="phase-dot" id="phase-type" title="Acting">
-                            <i class="fa-solid fa-keyboard"></i>
-                        </div>
-                        <div class="phase-line"></div>
-                        <div class="phase-dot" id="phase-check" title="Checking">
-                            <i class="fa-solid fa-circle-check"></i>
-                        </div>
-                        <div class="phase-line"></div>
-                        <div class="phase-dot" id="phase-save" title="Saving">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                        </div>
-                    </div>
-                    <span id="status-text" class="status-text">Reasoning...</span>
-                </div>
-            </div>
+    <main class="dashboard">
+      <section class="command-panel" aria-labelledby="greeting-title">
+        <div class="greeting-row">
+          <div>
+            <p class="eyebrow">Dash-1 is ready</p>
+            <h1 id="greeting-title">What should we quietly handle?</h1>
+          </div>
+          <button class="subtle-btn" type="button" data-view="vault">
+            <i class="fa-solid fa-shield-halved"></i>
+            Context by consent
+          </button>
         </div>
 
-        <!-- ── WORKFLOWS VIEW ── -->
-        <div class="view" id="view-workflows" style="display:none;">
-            <header class="view-header">
-                <div>
-                    <h1 class="view-title">Permanent Workflows</h1>
-                    <p class="view-sub">Set it once — Dash runs it forever.</p>
-                </div>
-                <button class="btn-primary small" id="btn-new-workflow">
-                    <i class="fa-solid fa-plus"></i> New Workflow
-                </button>
-            </header>
+        <form class="composer" id="prompt-form">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input id="main-input" name="prompt" type="text" autocomplete="off" placeholder="Ask Dash to plan, compare, book, scout, sync, or create...">
+          <button type="submit" aria-label="Send"><i class="fa-solid fa-arrow-up"></i></button>
+        </form>
 
-            <div class="workflow-grid">
-                <div class="workflow-card active-workflow">
-                    <div class="wf-header">
-                        <div class="wf-icon"><i class="fa-brands fa-instagram"></i></div>
-                        <div class="wf-status running"><span></span> Running</div>
-                    </div>
-                    <div class="wf-title">Social Media Manager</div>
-                    <div class="wf-desc">Posts 3x/week to Instagram & Twitter. Brainstormed with Dash, auto-published.</div>
-                    <div class="wf-meta">
-                        <span><i class="fa-solid fa-clock"></i> Mon · Wed · Fri at 9am</span>
-                        <span><i class="fa-solid fa-arrow-trend-up"></i> 14 posts published</span>
-                    </div>
-                    <div class="wf-actions">
-                        <button class="wf-btn" id="btn-edit-social-wf">Edit</button>
-                        <button class="wf-btn pause">Pause</button>
-                    </div>
-                </div>
-
-                <div class="workflow-card">
-                    <div class="wf-header">
-                        <div class="wf-icon"><i class="fa-solid fa-tags"></i></div>
-                        <div class="wf-status idle"><span></span> Idle</div>
-                    </div>
-                    <div class="wf-title">Price Drop Alert</div>
-                    <div class="wf-desc">Monitors product pages for price drops and alerts you before buying.</div>
-                    <div class="wf-meta">
-                        <span><i class="fa-solid fa-clock"></i> Daily at 8am</span>
-                        <span><i class="fa-solid fa-bell"></i> 0 alerts</span>
-                    </div>
-                    <div class="wf-actions">
-                        <button class="wf-btn">Activate</button>
-                    </div>
-                </div>
-
-                <button class="workflow-card add-workflow" id="btn-create-workflow">
-                    <i class="fa-solid fa-circle-plus"></i>
-                    <span>Create New Workflow</span>
-                    <p>Brainstorm with Dash, set frequency & credentials</p>
-                </button>
-            </div>
+        <div class="suggestion-toolbar">
+          <span>Useful starts</span>
+          <div>
+            <button class="round-btn" type="button" id="scroll-left" aria-label="Scroll suggestions left"><i class="fa-solid fa-chevron-left"></i></button>
+            <button class="round-btn" type="button" id="scroll-right" aria-label="Scroll suggestions right"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
         </div>
+        <div class="suggestion-cards" id="suggestion-cards" aria-label="Suggested missions"></div>
 
-        <!-- ── VAULT VIEW ── -->
-        <div class="view" id="view-vault" style="display:none;">
-            <header class="view-header">
-                <div>
-                    <h1 class="view-title">Mission Vault</h1>
-                    <p class="view-sub">Secure context Dash uses so it never has to ask twice.</p>
-                </div>
-            </header>
-
-            <div class="vault-sections">
-                <div class="vault-section">
-                    <div class="vault-section-title"><i class="fa-solid fa-location-dot"></i> Saved Addresses</div>
-                    <div class="vault-items">
-                        <div class="vault-item">
-                            <span class="vault-label">Home</span>
-                            <span class="vault-value">Toronto, ON, Canada</span>
-                            <button class="vault-edit">Edit</button>
-                        </div>
-                        <button class="vault-add" id="btn-add-address"><i class="fa-solid fa-plus"></i> Add Address</button>
-                    </div>
-                </div>
-
-                <div class="vault-section">
-                    <div class="vault-section-title"><i class="fa-solid fa-credit-card"></i> Payment Methods</div>
-                    <div class="vault-items">
-                        <div class="vault-item">
-                            <div class="payment-icon apple-pay"><i class="fa-brands fa-apple-pay"></i></div>
-                            <span class="vault-label">Apple Pay</span>
-                            <div class="vault-badge-green">Connected</div>
-                        </div>
-                        <div class="vault-item">
-                            <div class="payment-icon paypal"><i class="fa-brands fa-paypal"></i></div>
-                            <span class="vault-label">PayPal</span>
-                            <button class="vault-connect-btn">Connect</button>
-                        </div>
-                        <div class="vault-item">
-                            <div class="payment-icon card-icon"><i class="fa-solid fa-credit-card"></i></div>
-                            <span class="vault-label">Credit / Debit Card</span>
-                            <button class="vault-connect-btn">Add Card</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="vault-section">
-                    <div class="vault-section-title"><i class="fa-solid fa-share-nodes"></i> Social Context (Consented)</div>
-                    <div class="vault-items">
-                        <div class="vault-item">
-                            <i class="fa-brands fa-github vault-social-icon"></i>
-                            <span class="vault-label">GitHub</span>
-                            <div class="vault-badge-green">Linked</div>
-                        </div>
-                        <div class="vault-item">
-                            <i class="fa-brands fa-instagram vault-social-icon"></i>
-                            <span class="vault-label">Instagram</span>
-                            <button class="vault-connect-btn">Link (OAuth)</button>
-                        </div>
-                        <div class="vault-item">
-                            <i class="fa-brands fa-twitter vault-social-icon"></i>
-                            <span class="vault-label">X / Twitter</span>
-                            <button class="vault-connect-btn">Link (OAuth)</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="vault-section">
-                    <div class="vault-section-title"><i class="fa-solid fa-plane"></i> Travel Preferences</div>
-                    <div class="vault-items">
-                        <div class="vault-item">
-                            <span class="vault-label">Home Airport</span>
-                            <span class="vault-value">YYZ – Toronto Pearson</span>
-                            <button class="vault-edit">Edit</button>
-                        </div>
-                        <div class="vault-item">
-                            <span class="vault-label">Seat Preference</span>
-                            <span class="vault-value">Aisle · Economy</span>
-                            <button class="vault-edit">Edit</button>
-                        </div>
-                        <div class="vault-item">
-                            <span class="vault-label">Max Layover</span>
-                            <span class="vault-value">3 hours</span>
-                            <button class="vault-edit">Edit</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="quick-grid" aria-label="Quick actions">
+          <button type="button" class="quick-chip" data-view="vault">
+            <i class="fa-regular fa-user"></i>
+            <span><strong>Account</strong><small>Profile, address, memory</small></span>
+          </button>
+          <button type="button" class="quick-chip" data-view="social">
+            <i class="fa-solid fa-link"></i>
+            <span><strong>Social links</strong><small>Consent-first context</small></span>
+          </button>
+          <button type="button" class="quick-chip" data-view="payments">
+            <i class="fa-solid fa-wallet"></i>
+            <span><strong>Payments</strong><small>Approval required</small></span>
+          </button>
         </div>
+      </section>
 
-        <!-- ── MISSIONS VIEW ── -->
-        <div class="view" id="view-missions" style="display:none;">
-            <header class="view-header">
-                <div>
-                    <h1 class="view-title">Mission History</h1>
-                    <p class="view-sub">Every completed task, saved and auditable.</p>
-                </div>
-            </header>
-            <div class="missions-list">
-                <div class="mission-log-item success">
-                    <div class="ml-icon"><i class="fa-solid fa-gift"></i></div>
-                    <div class="ml-content">
-                        <div class="ml-title">Gift Scout — Trinidad</div>
-                        <div class="ml-sub">Scouted 3 gifts · Shipped via Amazon.com · Awaiting confirmation</div>
-                    </div>
-                    <div class="ml-status success-badge">Pending Approval</div>
-                    <div class="ml-time">Today</div>
-                </div>
-                <div class="mission-log-item">
-                    <div class="ml-icon"><i class="fa-solid fa-plane"></i></div>
-                    <div class="ml-content">
-                        <div class="ml-title">Travel Concierge — Caribbean</div>
-                        <div class="ml-sub">3 scouts spawned · Comparing 48 flight + hotel combos</div>
-                    </div>
-                    <div class="ml-status running-badge">In Progress</div>
-                    <div class="ml-time">Today</div>
-                </div>
-                <div class="mission-log-item">
-                    <div class="ml-icon"><i class="fa-brands fa-gitlab"></i></div>
-                    <div class="ml-content">
-                        <div class="ml-title">Account Resolver — GitLab</div>
-                        <div class="ml-sub">Account created · Verified · Synced to Mission Vault</div>
-                    </div>
-                    <div class="ml-status done-badge">Complete</div>
-                    <div class="ml-time">Yesterday</div>
-                </div>
-            </div>
+      <section class="workspace" aria-live="polite">
+        <div class="workspace-header">
+          <div>
+            <p class="eyebrow" id="workspace-kicker">Overview</p>
+            <h2 id="workspace-title">My Agents</h2>
+          </div>
+          <div class="workspace-actions" id="workspace-actions"></div>
         </div>
+        <div id="workspace-content"></div>
+      </section>
 
+      <section class="mission-panel" id="chat-section" hidden>
+        <div class="mission-header">
+          <div>
+            <p class="eyebrow">Mission</p>
+            <h2 id="mission-title">Working</h2>
+          </div>
+          <button type="button" class="subtle-btn" id="clear-mission">Clear</button>
+        </div>
+        <div class="mission-phases" id="mission-phases"></div>
+        <div class="chat-thread" id="chat-thread"></div>
+      </section>
     </main>
-</div>
+  </div>
 
-<!-- ══════════════════════════════════════
-     MODAL: WORKFLOW BUILDER
-     ══════════════════════════════════════ -->
-<div id="modal-workflow" class="modal-overlay" style="display:none;">
-    <div class="modal-card">
-        <button class="modal-close" id="btn-close-wf-modal"><i class="fa-solid fa-xmark"></i></button>
-        <h2 class="modal-title">Create Permanent Workflow</h2>
-        <div class="workflow-steps">
-            <div class="wf-step active" id="wf-step-1">
-                <div class="step-num">1</div>
-                <div class="step-label">Brainstorm</div>
-            </div>
-            <div class="step-connector"></div>
-            <div class="wf-step" id="wf-step-2">
-                <div class="step-num">2</div>
-                <div class="step-label">Credentials</div>
-            </div>
-            <div class="step-connector"></div>
-            <div class="wf-step" id="wf-step-3">
-                <div class="step-num">3</div>
-                <div class="step-label">Schedule</div>
-            </div>
-            <div class="step-connector"></div>
-            <div class="wf-step" id="wf-step-4">
-                <div class="step-num">4</div>
-                <div class="step-label">Activate</div>
-            </div>
-        </div>
-
-        <div class="modal-body" id="modal-body">
-            <p class="modal-prompt">What should this workflow do? Describe it naturally and Dash will figure out the plan.</p>
-            <textarea id="wf-brainstorm-input" class="modal-textarea" placeholder="e.g. Post motivational content 3 times a week on Instagram and LinkedIn..."></textarea>
-            <div class="modal-footer">
-                <button class="btn-ghost" id="btn-close-wf-modal-2">Cancel</button>
-                <button class="btn-primary" id="btn-wf-next">Brainstorm with Dash <i class="fa-solid fa-wand-magic-sparkles"></i></button>
-            </div>
-        </div>
+  <aside class="side-drawer" id="side-drawer" hidden aria-live="polite">
+    <div class="drawer-header">
+      <div>
+        <p class="eyebrow" id="drawer-kicker">Inbox</p>
+        <h2 id="drawer-title">Notifications</h2>
+      </div>
+      <button class="icon-btn" type="button" id="drawer-close" aria-label="Close drawer"><i class="fa-solid fa-xmark"></i></button>
     </div>
-</div>
+    <div id="drawer-content"></div>
+  </aside>
 
-<!-- ══════════════════════════════════════
-     MODAL: HITL CHECKPOINT
-     ══════════════════════════════════════ -->
-<div id="modal-hitl" class="modal-overlay" style="display:none;">
-    <div class="modal-card hitl-card">
-        <div class="hitl-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-        <h2 class="hitl-title" id="hitl-title">Human Checkpoint</h2>
-        <p class="hitl-body" id="hitl-body">Dash needs your approval to continue.</p>
-        <div class="hitl-actions">
-            <button class="btn-ghost" id="btn-hitl-deny">Deny</button>
-            <button class="btn-primary" id="btn-hitl-approve">Approve & Continue</button>
+  <div class="modal-overlay" id="dynamic-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <div class="modal-icon" id="modal-icon"><i class="fa-solid fa-sparkles"></i></div>
+        <div>
+          <p class="eyebrow" id="modal-kicker">Configure</p>
+          <h2 id="modal-title">Mission</h2>
         </div>
+        <button class="icon-btn" type="button" id="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="modal-form">
+        <div class="modal-body" id="modal-body-content"></div>
+        <div class="modal-footer">
+          <button type="button" class="subtle-btn" id="modal-cancel">Cancel</button>
+          <button type="submit" class="primary-btn" id="modal-confirm">Start quietly</button>
+        </div>
+      </form>
     </div>
-</div>
+  </div>
 
-<script src="app.js"></script>
+  <div class="modal-overlay" id="modal-hitl" hidden>
+    <div class="modal-card checkpoint-card" role="dialog" aria-modal="true" aria-labelledby="hitl-title">
+      <div class="checkpoint-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <p class="eyebrow">Human checkpoint</p>
+      <h2 id="hitl-title">Approval needed</h2>
+      <p id="hitl-body">Dash needs your confirmation before a consequential step.</p>
+      <div class="modal-footer">
+        <button class="subtle-btn" type="button" id="btn-hitl-deny">Deny</button>
+        <button class="primary-btn" type="button" id="btn-hitl-approve">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-root" id="toast-root" aria-live="polite"></div>
+
+  <script src="app.js?v=2026051910"></script>
 </body>
 </html>

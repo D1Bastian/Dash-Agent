@@ -53,7 +53,7 @@ async def google_auth_url():
     return {"url": url, "demo_mode": False}
 
 
-# -- 2. OAuth callback — exchange code for tokens ---------------------------
+# -- 2. OAuth callback - exchange code for tokens ---------------------------
 @router.get("/google/callback")
 async def google_callback(code: str, request: Request):
     if not GOOGLE_CLIENT_ID:
@@ -111,7 +111,7 @@ async def google_callback(code: str, request: Request):
             "status":         "active",
         })
     except Exception:
-        pass  # vault unavailable — still let user in (demo mode)
+        pass  # vault unavailable - still let user in (demo mode)
 
     # Redirect to frontend with a short-lived access token in the URL fragment
     # (access_token expires in 1h; frontend uses it for Gemini calls via /mission/execute)
@@ -137,7 +137,7 @@ async def refresh_token(body: RefreshRequest):
         raise HTTPException(status_code=404, detail="No stored token for this user.")
 
     if not refresh_tok:
-        raise HTTPException(status_code=401, detail="No refresh token — user must re-authorise.")
+        raise HTTPException(status_code=401, detail="No refresh token - user must re-authorise.")
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -175,7 +175,7 @@ async def gemini_generate(body: GeminiRequest, request: Request):
     access_token = auth_header.replace("Bearer ", "").strip()
 
     if not access_token or access_token == "demo-token":
-        # Demo mode — return a canned response
+        # Demo mode - return a canned response
         return {
             "status": "demo",
             "text": f"[Demo mode] Gemini would respond to: {body.prompt[:80]}...",

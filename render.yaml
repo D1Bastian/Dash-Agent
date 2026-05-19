@@ -2,7 +2,7 @@ services:
   - type: web
     name: dash-agent
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && playwright install chromium --with-deps
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DASH_MCP_MODE
@@ -41,7 +41,7 @@ services:
       - key: FRONTEND_URL
         sync: false
         placeholder: "https://your-render-url.onrender.com"
-            - key: PYTHON_VERSION
+      - key: PYTHON_VERSION
         value: 3.12.3
 
 

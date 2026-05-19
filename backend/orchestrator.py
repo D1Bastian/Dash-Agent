@@ -96,6 +96,31 @@ class MasterOrchestrator:
                 ),
             ]
 
+        if mission_type == "shopping-scout":
+            return [
+                SubAgent(
+                    name="Constraint Mapper",
+                    responsibility="Turn a vague purchase request into item, budget, region, delivery, and risk constraints.",
+                    tools=("Gemini 3", "MongoDB Mission Vault"),
+                ),
+                SubAgent(
+                    name="Product Scout",
+                    responsibility="Search merchant catalogs and marketplaces for comparable products.",
+                    tools=("Browser Session", "Elastic Action Search"),
+                ),
+                SubAgent(
+                    name="Price And Logistics",
+                    responsibility="Compare landed cost, international availability, seller trust, returns, and delivery confidence.",
+                    tools=("Browser Session", "Fivetran Pipeline"),
+                ),
+                SubAgent(
+                    name="Checkout Gate",
+                    responsibility="Prepare carts or shortlists and stop before payment or irreversible purchase actions.",
+                    tools=("Browser Session", "MongoDB Mission Vault"),
+                    consent_required=True,
+                ),
+            ]
+
         if mission_type == "gitlab-registration":
             return [
                 SubAgent(

@@ -48,3 +48,5 @@ backend/__pycache__/
 superpowers/__pycache__/
 missions/__pycache__/
 render.yaml.bak
+
+.env.local

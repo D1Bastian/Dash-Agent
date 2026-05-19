@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from playwright.async_api import async_playwright
 
 from superpowers.arize_monitor import ArizeMonitor
 from superpowers.elastic_search import ElasticSearch
@@ -78,6 +79,15 @@ class GiftScoutRequest(BaseModel):
     shipping_country: str | None = None
 
 
+class ShoppingScoutRequest(BaseModel):
+    user_id: str = "demo-user"
+    item: str | None = None
+    budget: str | None = None
+    shipping_country: str | None = None
+    preference: str | None = None
+    constraints: list[str] = Field(default_factory=list)
+
+
 class GitHubSyncRequest(BaseModel):
     user_id: str = "demo-user"
     github_connection_ready: bool = False
@@ -141,6 +151,7 @@ async def architecture() -> dict[str, Any]:
             "data-context": serialize_agents(orchestrator.plan("data-context")),
             "account-resolver": serialize_agents(orchestrator.plan("account-resolver")),
             "gift-scout": serialize_agents(orchestrator.plan("gift-scout")),
+            "shopping-scout": serialize_agents(orchestrator.plan("shopping-scout")),
         },
         "brain": "Google Cloud Agent Builder (Gemini 3)",
         "superpowers": ["MongoDB", "Elastic", "Arize", "Fivetran"],
@@ -355,6 +366,73 @@ async def gift_scout_mission(request: GiftScoutRequest) -> dict[str, Any]:
     }
 
 
+@app.post("/missions/shopping-scout")
+async def shopping_scout_mission(request: ShoppingScoutRequest) -> dict[str, Any]:
+    """Consumer mission: compare products, shipping, and checkout risk."""
+    mission_id = f"shopping-scout-{request.user_id}"
+    orchestrator = MasterOrchestrator()
+    vault = MongoVault()
+    monitor = ArizeMonitor()
+    search = ElasticSearch()
+    pipeline = FivetranPipeline()
+
+    missing_questions = []
+    if not request.item:
+        missing_questions.append("What item, category, or problem should I shop for?")
+    if not request.budget:
+        missing_questions.append("What budget or price ceiling should I respect?")
+    if not request.shipping_country:
+        missing_questions.append("Where does this need to ship?")
+
+    await monitor.log_reasoning_trace(
+        mission_id,
+        [
+            "Map the purchase request into item, budget, region, and risk constraints.",
+            "Apply international shipping and delivery-confidence filters when relevant.",
+            "Compare total landed cost, seller reliability, return policy, and delivery confidence.",
+            "Prepare recommendations or carts but stop before checkout or payment.",
+        ],
+    )
+
+    await vault.store_mission_state(mission_id, {
+        "item": request.item,
+        "budget": request.budget,
+        "shipping_country": request.shipping_country,
+        "preference": request.preference,
+        "constraints": request.constraints,
+    })
+
+    product_pattern = await search.find_dom_pattern("shopping", "product_card_price_shipping")
+    await pipeline.stream_mission_data(mission_id, {
+        "mission": "shopping-scout",
+        "status": "needs_context" if missing_questions else "ready_to_compare",
+        "constraint_count": len(request.constraints),
+    })
+
+    if missing_questions:
+        return {
+            "status": "needs_context",
+            "mission_id": mission_id,
+            "subagents": serialize_agents(orchestrator.plan("shopping-scout")),
+            "questions": missing_questions,
+            "payment_policy": "prepare_only_until_explicit_confirmation",
+        }
+
+    return {
+        "status": "ready_to_compare",
+        "mission_id": mission_id,
+        "subagents": serialize_agents(orchestrator.plan("shopping-scout")),
+        "ranking_model": {
+            "price_score": "total landed cost against budget",
+            "delivery_confidence": "shipping speed, destination, stock, and seller history",
+            "seller_reliability": "rating, return policy, marketplace risk, and support signals",
+            "fit_score": "user preference, reviews, specs, and ambiguity tolerance",
+        },
+        "next_action": "Search products, compare landed cost and delivery risk, then present a shortlist before checkout.",
+        "product_pattern": product_pattern,
+    }
+
+
 @app.post("/missions/github-sync")
 async def github_sync_mission(request: GitHubSyncRequest) -> dict[str, Any]:
     mission_id = f"github-sync-{request.user_id}"
@@ -538,5 +616,33 @@ async def account_resolver_mission(request: AccountResolverRequest) -> dict[str,
 
 app.mount("/", StaticFiles(directory=str(ROOT), html=False), name="static-root")
 
+# Playwright DOM deconstruction endpoint
+class DeconstructRequest(BaseModel):
+    url: str
+    timeout: int = 30  # seconds
+
+async def deconstruct_dom(url: str, timeout: int = 30):
+    """Navigate to a page using Playwright and return a simplified DOM description.
+    Returns a list of interactive elements with key accessibility attributes.
+    """
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, timeout=timeout * 1000)
+            await page.wait_for_load_state('networkidle', timeout=timeout * 1000)
+            elements = await page.eval_on_selector_all(
+                "[role], input, button, a, select, textarea, form",
+                "els => els.map(el => ({\n                    tag: el.tagName.toLowerCase(),\n                    role: el.getAttribute('role') || null,\n                    name: el.getAttribute('name') || null,\n                    type: el.getAttribute('type') || null,\n                    placeholder: el.getAttribute('placeholder') || null,\n                    ariaLabel: el.getAttribute('aria-label') || null,\n                    text: el.innerText.trim() || null,\n                    id: el.id || null,\n                    classes: el.className || null\n                }))"
+            )
+            await browser.close()
+            return elements
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DOM deconstruction failed: {e}")
+
+@app.post("/dom/deconstruct")
+async def dom_deconstruct(req: DeconstructRequest):
+    elements = await deconstruct_dom(req.url, req.timeout)
+    return JSONResponse(content={"url": req.url, "elements": elements})
 
 
