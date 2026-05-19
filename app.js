@@ -3,6 +3,26 @@
     ? window.location.origin
     : "http://127.0.0.1:8000";
 
+  // ── Authentication & Routing ──────────────────────────────────────────
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  
+  if (params.get("access_token")) {
+    const user_id = params.get("user_id");
+    const name = params.get("name");
+    const email = params.get("email");
+    localStorage.setItem("dash-token", params.get("access_token"));
+    
+    // Save to state
+    const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
+    const newState = saved || { user: {} };
+    newState.user = { id: user_id, name: name, email: email, country: "United States", currency: "USD", homeAirport: "SFO" };
+    localStorage.setItem("dash-state-v1", JSON.stringify(newState));
+    
+    // Clean up URL
+    window.history.replaceState(null, null, window.location.pathname);
+  }
+
   function setAmbientMode(date = new Date()) {
     const hour = date.getHours();
     const mode = hour >= 6 && hour < 18
@@ -1094,11 +1114,21 @@
   }
 
   function init() {
-    renderSuggestions();
-    bindEvents();
-    renderCounters();
-    renderWorkspace(state.view);
-    loadArchitecture();
+    const appShell = document.querySelector(".app-shell");
+    const loginOverlay = document.getElementById("login-overlay");
+    
+    if (state.user.id === "demo-user" || !state.user.id) {
+      loginOverlay.hidden = false;
+      appShell.hidden = true;
+    } else {
+      loginOverlay.hidden = true;
+      appShell.hidden = false;
+      renderSuggestions();
+      bindEvents();
+      renderCounters();
+      renderWorkspace(state.view);
+      loadArchitecture();
+    }
   }
 
   init();
