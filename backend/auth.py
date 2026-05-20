@@ -40,7 +40,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 async def google_auth_url():
     if not GOOGLE_CLIENT_ID:
         # Demo mode: no OAuth configured
-        return JSONResponse({"url": None, "demo_mode": True})
+        return RedirectResponse(f"{FRONTEND_URL}?auth=demo")
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
         "redirect_uri":  REDIRECT_URI,
@@ -51,7 +51,7 @@ async def google_auth_url():
     }
     from urllib.parse import urlencode
     url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
-    return {"url": url, "demo_mode": False}
+    return RedirectResponse(url)
 
 
 # -- 2. OAuth callback - exchange code for tokens ---------------------------
