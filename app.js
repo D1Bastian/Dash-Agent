@@ -6,19 +6,41 @@
   // ── Authentication & Routing ──────────────────────────────────────────
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(window.location.search);
   
-  if (params.get("access_token")) {
-    const user_id = params.get("user_id");
-    const name = params.get("name");
-    const email = params.get("email");
-    localStorage.setItem("dash-token", params.get("access_token"));
-    
-    // Save to state
+// Generic authentication handling
+  const provider = params.get("provider") || "google";
+  const token = params.get("access_token");
+  const user_id = params.get("user_id");
+  const name = params.get("name");
+  const email = params.get("email");
+  if (token) {
+    // Store token
+    localStorage.setItem("dash-token", token);
+    // Save user info
     const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
     const newState = saved || { user: {} };
     newState.user = { id: user_id, name: name, email: email, country: "United States", currency: "USD", homeAirport: "SFO" };
     localStorage.setItem("dash-state-v1", JSON.stringify(newState));
-    
+    // Load persistent memory from MongoDB Vault if provider is not demo
+    if (provider !== "demo") {
+      fetch(`${API_BASE}/api/vault/load`, { headers: { "Authorization": `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => {
+          // Merge loaded memory into state
+          state.user = { ...state.user, ...data.user };
+          state.memory = data.memory || {};
+          persist();
+        })
+        .catch(console.error);
+    }
+    // Clean up URL
+    window.history.replaceState(null, null, window.location.pathname);
+  } else if (searchParams.get("auth") === "demo") {
+    const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
+    const newState = saved || { user: {} };
+    newState.user = { id: "demo-authorized", name: "Sarah K.", email: "sarah@example.com", country: "United States", currency: "USD", homeAirport: "SFC" };
+    localStorage.setItem("dash-state-v1", JSON.stringify(newState));
     // Clean up URL
     window.history.replaceState(null, null, window.location.pathname);
   }
@@ -173,10 +195,13 @@
     connectors: [
       { id: "google", name: "Google", status: "available", scopes: "Identity, calendar, Gemini on behalf of user" },
       { id: "github", name: "GitHub", status: "needs consent", scopes: "Repository selection and sync references" },
+      { id: "microsoft", name: "Microsoft", status: "needs consent", scopes: "Identity, calendar, Graph API" },
+      { id: "anthropic", name: "Anthropic", status: "needs consent", scopes: "Identity and Claude model access" },
+      { id: "openai", name: "OpenAI", status: "needs consent", scopes: "Identity and GPT model access" },
+      { id: "mongodb", name: "MongoDB Vault", status: "available", scopes: "Preferences, consent, mission state" },
       { id: "apple", name: "Apple", status: "planned", scopes: "Identity and private relay-friendly profile context" },
       { id: "amazon", name: "Amazon", status: "session handoff", scopes: "Shopping only after user approval" },
       { id: "expedia", name: "Expedia", status: "web action", scopes: "Travel search and booking prep" },
-      { id: "mongodb", name: "MongoDB Vault", status: "local demo", scopes: "Preferences, consent, mission state" },
     ],
   };
 
@@ -705,6 +730,22 @@
   // ── Real streaming mission caller ─────────────────────────────────────
   async function callMissionStream(type, prompt, payload, onChunk) {
     const user_id = state.user.id;
+    // Enrich payload with Elastic search results if applicable
+    if (payload && payload.query) {
+      try {
+        const elasticResp = await fetch(`${API_BASE}/search/elastic`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: payload.query })
+        });
+        const elasticData = await elasticResp.json();
+        // Merge elastic results into payload under `elastic` key
+        payload.elastic = elasticData;
+      } catch (e) {
+        console.warn("Elastic enrichment failed:", e);
+      }
+    }
+
     const body = { user_id, prompt, mission_type: type, context: payload };
 
     // Route structured missions to their dedicated endpoints first

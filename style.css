@@ -263,7 +263,7 @@ body.time-dusk .horizon-wash {
 .nav-links {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: 40px;
   z-index: 3;
   display: flex;
   justify-content: center;
@@ -288,10 +288,10 @@ body.time-dusk .horizon-wash {
   content: "";
   position: absolute;
   inset: 0;
-  border-top: 1px solid rgba(0, 121, 141, 0.34);
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(19, 184, 201, 0.14), transparent 60%);
-  box-shadow: inset 0 10px 24px rgba(255,255,255,0.18);
+  border-bottom: 1px solid rgba(0, 121, 141, 0.34);
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(19, 184, 201, 0.14), transparent 60%);
+  box-shadow: inset 0 -10px 24px rgba(255,255,255,0.18);
 }
 
 body.time-night .topbar {
@@ -299,8 +299,8 @@ body.time-night .topbar {
 }
 
 body.time-night .arc-shell::before {
-  border-top-color: rgba(109, 226, 242, 0.34);
-  box-shadow: inset 0 10px 26px rgba(109, 226, 242, 0.1);
+  border-bottom-color: rgba(109, 226, 242, 0.34);
+  box-shadow: inset 0 -10px 26px rgba(109, 226, 242, 0.1);
 }
 
 body.time-night .brand,
@@ -320,27 +320,27 @@ body.time-night .nav-link {
 }
 
 .nav-link:nth-child(1) {
-  transform: translateY(22px);
+  transform: translateY(0px);
 }
 
 .nav-link:nth-child(2) {
-  transform: translateY(8px);
+  transform: translateY(14px);
 }
 
 .nav-link:nth-child(3) {
-  transform: translateY(0px);
+  transform: translateY(22px);
 }
 
 .nav-link:nth-child(4) {
-  transform: translateY(0px);
+  transform: translateY(22px);
 }
 
 .nav-link:nth-child(5) {
-  transform: translateY(8px);
+  transform: translateY(14px);
 }
 
 .nav-link:nth-child(6) {
-  transform: translateY(22px);
+  transform: translateY(0px);
 }
 
 .nav-link:hover,
@@ -591,6 +591,13 @@ p {
   color: #fff;
   font-weight: 800;
 }
+
+/* Provider-specific button styles */
+.primary-btn.github-btn { background: linear-gradient(135deg, #333333, #6e5494); }
+.primary-btn.microsoft-btn { background: linear-gradient(135deg, #0078d4, #00bcf2); }
+.primary-btn.anthropic-btn { background: linear-gradient(135deg, #7b2cbf, #9d4edd); }
+.primary-btn.openai-btn { background: linear-gradient(135deg, #10a37f, #0c7c66); }
+
 
 .composer button {
   display: grid;

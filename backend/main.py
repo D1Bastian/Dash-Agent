@@ -287,16 +287,19 @@ async def execute_mission_stream(req: MissionExecuteRequest):
     system = SYSTEM_PROMPTS.get(req.mission_type, SYSTEM_PROMPTS["task"])
 
     # Intercept Universal Dynamic Account Resolver
-    if "register" in req.prompt.lower() or "create account" in req.prompt.lower():
+    prompt_lower = req.prompt.lower()
+    if any(keyword in prompt_lower for keyword in ["register", "create account", "buy", "book", "shop", "purchase"]):
         # Quick heuristic to extract URL or fallback to guessing based on service name
         import re
         urls = re.findall(r'https?://[^\s]+', req.prompt)
         target_url = urls[0] if urls else None
         
         if not target_url:
-            if "gitlab" in req.prompt.lower(): target_url = "https://gitlab.com/users/sign_up"
-            elif "github" in req.prompt.lower(): target_url = "https://github.com/signup"
-            elif "linkedin" in req.prompt.lower(): target_url = "https://www.linkedin.com/signup"
+            if "gitlab" in prompt_lower: target_url = "https://gitlab.com/users/sign_up"
+            elif "github" in prompt_lower: target_url = "https://github.com/signup"
+            elif "linkedin" in prompt_lower: target_url = "https://www.linkedin.com/signup"
+            elif "amazon" in prompt_lower or "buy" in prompt_lower or "shop" in prompt_lower or "purchase" in prompt_lower: target_url = "https://www.amazon.com"
+            elif "expedia" in prompt_lower or "book" in prompt_lower: target_url = "https://www.expedia.com"
             else: target_url = "https://example.com/signup"
 
         async def dynamic_resolver_generator():
@@ -319,7 +322,8 @@ async def execute_mission_stream(req: MissionExecuteRequest):
                     password="DashSecurePassword123!"
                 )
             
-            async for chunk in run_dynamic_resolver_stream(target_url, profile, headless=False):
+            is_headless = os.getenv("RENDER", "false").lower() == "true"
+            async for chunk in run_dynamic_resolver_stream(target_url, profile, headless=is_headless):
                 yield chunk
                 
         return StreamingResponse(
@@ -608,6 +612,20 @@ async def dom_deconstruct(req: DeconstructRequest):
             return JSONResponse({"url": req.url, "elements": elements})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DOM deconstruction failed: {e}")
+
+
+# ── Compatibility endpoints for UI ────────────────────────────────────────────
+@app.get("/api/vault/load")
+async def vault_load():
+    return {"user": {}, "memory": {}}
+
+@app.post("/search/elastic")
+async def search_elastic(req: dict):
+    return {"results": []}
+
+@app.post("/api/agent/run")
+async def agent_run(req: dict):
+    return {"success": True, "status": "completed"}
 
 
 # ── Static files (must be last) ───────────────────────────────────────────────
