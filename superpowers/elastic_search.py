@@ -44,3 +44,41 @@ class ElasticSearch:
         except Exception as e:
             logging.error(f"ElasticSearch error: {e}")
             return {"ok": False, "error": str(e)}
+
+    async def get_solved_actions(self, url: str):
+        """Retrieves previously solved DOM mapping actions for a given URL."""
+        if not self.client:
+            return None
+            
+        try:
+            response = await self.client.search(
+                index="solved_missions",
+                query={
+                    "term": {
+                        "url.keyword": url
+                    }
+                }
+            )
+            hits = response.get("hits", {}).get("hits", [])
+            if hits:
+                return hits[0].get("_source", {}).get("actions", [])
+            return None
+        except Exception as e:
+            logging.error(f"ElasticSearch get_solved_actions error: {e}")
+            return None
+
+    async def save_solved_actions(self, url: str, actions: list):
+        """Saves a successfully executed JSON action mapping to Elastic Search."""
+        if not self.client:
+            return
+            
+        try:
+            await self.client.index(
+                index="solved_missions",
+                document={
+                    "url": url,
+                    "actions": actions
+                }
+            )
+        except Exception as e:
+            logging.error(f"ElasticSearch save_solved_actions error: {e}")

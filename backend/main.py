@@ -289,18 +289,23 @@ async def execute_mission_stream(req: MissionExecuteRequest):
     # Intercept Universal Dynamic Account Resolver
     prompt_lower = req.prompt.lower()
     if any(keyword in prompt_lower for keyword in ["register", "create account", "buy", "book", "shop", "purchase"]):
-        # Quick heuristic to extract URL or fallback to guessing based on service name
         import re
         urls = re.findall(r'https?://[^\s]+', req.prompt)
         target_url = urls[0] if urls else None
         
         if not target_url:
-            if "gitlab" in prompt_lower: target_url = "https://gitlab.com/users/sign_up"
-            elif "github" in prompt_lower: target_url = "https://github.com/signup"
-            elif "linkedin" in prompt_lower: target_url = "https://www.linkedin.com/signup"
-            elif "amazon" in prompt_lower or "buy" in prompt_lower or "shop" in prompt_lower or "purchase" in prompt_lower: target_url = "https://www.amazon.com"
-            elif "expedia" in prompt_lower or "book" in prompt_lower: target_url = "https://www.expedia.com"
-            else: target_url = "https://example.com/signup"
+            # Dynamic URL routing via LLM
+            search_prompt = (
+                f"The user requested: '{req.prompt}'. "
+                "Determine the single most appropriate URL to navigate to in order to accomplish this task. "
+                "For example, if they want to buy a product, return https://www.amazon.com. "
+                "If they want to register for GitHub, return https://github.com/signup. "
+                "Return ONLY the raw URL string starting with https://, and nothing else."
+            )
+            try:
+                target_url = (await gemini(search_prompt, model="gemini-2.5-flash")).strip()
+            except Exception:
+                target_url = "https://google.com"
 
         async def dynamic_resolver_generator():
             profiles = await vault.get_registration_profile(req.user_id)

@@ -58,37 +58,48 @@ async def run_dynamic_resolver_stream(url: str, profile: RegistrationProfile, he
             }).filter(e => e !== null)"""
         )
 
-        yield emit(f"📊 Found {len(elements)} interactive elements. Analyzing with Gemini...")
+        yield emit(f"📊 Found {len(elements)} interactive elements. Checking Elastic Search cache...")
 
-        # Ask Gemini to map fields
-        system_prompt = (
-            "You are Dash, an autonomous web agent. Given a list of DOM elements and a user profile, "
-            "determine exactly which fields to fill and what button to click to submit the registration or login form.\n"
-            "Return a JSON array of actions. Actions can be:\n"
-            "- {\"action\": \"fill\", \"id\": \"element_id\" OR \"name\": \"element_name\", \"value\": \"value_to_fill\"}\n"
-            "- {\"action\": \"click\", \"id\": \"element_id\" OR \"name\": \"element_name\" OR \"text\": \"button_text\"}\n"
-            "Only return valid JSON."
-        )
+        from superpowers.elastic_search import ElasticSearch
+        elastic = ElasticSearch()
+        cached_actions = await elastic.get_solved_actions(url)
 
-        prompt = (
-            f"User Profile:\nFirst: {profile.first_name}, Last: {profile.last_name}, "
-            f"User: {profile.username}, Email: {profile.email}, Password: {profile.password}\n\n"
-            f"DOM Elements:\n{json.dumps(elements, indent=2)}\n\n"
-            "Generate the JSON array of actions to fill and submit this form."
-        )
-
-        response = await gemini(prompt, system=system_prompt, model="gemini-2.5-flash")
-        
-        # Parse Gemini's JSON
-        try:
-            json_str = response.strip()
-            if json_str.startswith("```json"):
-                json_str = json_str[7:-3]
-            elif json_str.startswith("```"):
-                json_str = json_str[3:-3]
+        if cached_actions:
+            yield emit(f"⚡ Elastic Cache Hit! Executing from muscle memory...")
+            actions = cached_actions
+        else:
+            yield emit(f"🧠 Cache miss. Analyzing with Gemini...")
             
-            actions = json.loads(json_str)
-            yield emit(f"🤖 Gemini mapped {len(actions)} actions. Executing...")
+            # Ask Gemini to map fields
+            system_prompt = (
+                "You are Dash, an autonomous web agent. Given a list of DOM elements and a user profile, "
+                "determine exactly which fields to fill and what button to click to submit the registration or login form.\n"
+                "Return a JSON array of actions. Actions can be:\n"
+                "- {\"action\": \"fill\", \"id\": \"element_id\" OR \"name\": \"element_name\", \"value\": \"value_to_fill\"}\n"
+                "- {\"action\": \"click\", \"id\": \"element_id\" OR \"name\": \"element_name\" OR \"text\": \"button_text\"}\n"
+                "Only return valid JSON."
+            )
+
+            prompt = (
+                f"User Profile:\nFirst: {profile.first_name}, Last: {profile.last_name}, "
+                f"User: {profile.username}, Email: {profile.email}, Password: {profile.password}\n\n"
+                f"DOM Elements:\n{json.dumps(elements, indent=2)}\n\n"
+                "Generate the JSON array of actions to fill and submit this form."
+            )
+
+            response = await gemini(prompt, system=system_prompt, model="gemini-2.5-flash")
+            
+            # Parse Gemini's JSON
+            try:
+                json_str = response.strip()
+                if json_str.startswith("```json"):
+                    json_str = json_str[7:-3]
+                elif json_str.startswith("```"):
+                    json_str = json_str[3:-3]
+                
+                actions = json.loads(json_str)
+                yield emit(f"🤖 Gemini mapped {len(actions)} actions. Saving to Elastic Search...")
+                await elastic.save_solved_actions(url, actions)
         except Exception as e:
             yield emit(f"❌ Failed to parse Gemini response: {str(e)}")
             await browser.close()
