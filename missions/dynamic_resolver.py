@@ -100,10 +100,10 @@ async def run_dynamic_resolver_stream(url: str, profile: RegistrationProfile, he
                 actions = json.loads(json_str)
                 yield emit(f"🤖 Gemini mapped {len(actions)} actions. Saving to Elastic Search...")
                 await elastic.save_solved_actions(url, actions)
-        except Exception as e:
-            yield emit(f"❌ Failed to parse Gemini response: {str(e)}")
-            await browser.close()
-            return
+            except Exception as e:
+                yield emit(f"❌ Failed to parse Gemini response: {str(e)}")
+                await browser.close()
+                return
 
         # Execute actions
         for action in actions:
