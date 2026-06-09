@@ -136,7 +136,7 @@ Dash is designed around human oversight, not around autonomy for its own sake.
 
 ```bash
 # Clone and install
-git clone https://github.com/YOUR_USERNAME/infinite-action-agent.git
+git clone https://github.com/D1Bastian/Dash-Agent.git
 cd infinite-action-agent
 pip install -r requirements.txt
 playwright install chromium
