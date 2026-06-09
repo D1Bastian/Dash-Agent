@@ -4,7 +4,7 @@ Google OAuth + Gemini-on-behalf-of-user flow.
 Flow:
   1. Frontend calls GET /auth/google/url  -> gets the Google OAuth URL
   2. User approves in Google popup        -> Google redirects to /auth/google/callback?code=...
-  3. Backend exchanges code for tokens    -> stores refresh_token in MongoDB vault
+  3. Backend exchanges code for tokens    -> stores a non-secret session reference in MongoDB vault
   4. Frontend calls POST /mission/execute with Authorization: Bearer <access_token>
   5. Backend uses that token to call Gemini API on behalf of the user
 """
@@ -14,13 +14,14 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
+from urllib.parse import urlencode
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 REDIRECT_URI         = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
-FRONTEND_URL         = os.getenv("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL         = os.getenv("FRONTEND_URL", "/")
 
 # Scopes: identity + Gemini (Generative Language API)
 SCOPES = " ".join([
@@ -33,6 +34,7 @@ SCOPES = " ".join([
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 
 # -- 1. Get the Google OAuth login URL --------------------------------------
@@ -49,9 +51,17 @@ async def google_auth_url():
         "access_type":   "offline",   # get refresh_token
         "prompt":        "consent",   # always show consent so we get refresh_token
     }
-    from urllib.parse import urlencode
     url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
     return RedirectResponse(url)
+
+
+@router.get("/{provider}/url")
+async def provider_auth_url(provider: str):
+    """Gracefully stage non-Google providers until their OAuth apps are configured."""
+    allowed = {"github", "microsoft", "anthropic", "openai", "apple"}
+    if provider not in allowed:
+        raise HTTPException(status_code=404, detail=f"Unsupported provider: {provider}")
+    return RedirectResponse(f"{FRONTEND_URL}?auth=demo&provider={provider}")
 
 
 # -- 2. OAuth callback - exchange code for tokens ---------------------------
@@ -93,7 +103,8 @@ async def google_callback(code: str, request: Request):
     email   = user_info.get("email", "")
     name    = user_info.get("name", "")
 
-    # Store refresh_token in MongoDB vault (never exposed to frontend)
+    # Store consent/session metadata only. Raw refresh tokens require a dedicated
+    # server-side secret manager and are intentionally not written to the Mission Vault.
     try:
         from superpowers.mongo_vault import MongoVault
         vault = MongoVault()
@@ -104,11 +115,12 @@ async def google_callback(code: str, request: Request):
             "authorized_sources": ["google"],
             "mission_goals":  ["gift-scout", "travel", "account-resolver", "social-manager"],
         })
-        # Store the refresh token as a vault secret reference (never returned to client)
         await vault.store_context_source(user_id, {
             "provider":       "google",
             "scope":          "gemini+identity",
-            "refresh_token":  refresh_token,   # encrypted at rest in Mongo
+            "refresh_token_ref": f"google-oauth-refresh:{user_id}" if refresh_token else None,
+            "refresh_token_present": bool(refresh_token),
+            "secret_storage": "external_secret_manager_required",
             "status":         "active",
         })
     except Exception:
@@ -116,7 +128,14 @@ async def google_callback(code: str, request: Request):
 
     # Redirect to frontend with a short-lived access token in the URL fragment
     # (access_token expires in 1h; frontend uses it for Gemini calls via /mission/execute)
-    redirect = f"{FRONTEND_URL}#access_token={access_token}&user_id={user_id}&name={name}&email={email}"
+    fragment = urlencode({
+        "access_token": access_token or "",
+        "user_id": user_id,
+        "name": name,
+        "email": email,
+        "provider": "google",
+    })
+    redirect = f"{FRONTEND_URL}#{fragment}"
     return RedirectResponse(redirect)
 
 
@@ -133,12 +152,16 @@ async def refresh_token(body: RefreshRequest):
         from superpowers.mongo_vault import MongoVault
         vault = MongoVault()
         ctx = await vault.get_context_source(body.user_id, "google")
-        refresh_tok = ctx.get("refresh_token") if ctx else None
+        source = ctx.get("source", {}) if ctx else {}
+        refresh_tok = source.get("refresh_token") if source else None
     except Exception:
         raise HTTPException(status_code=404, detail="No stored token for this user.")
 
     if not refresh_tok:
-        raise HTTPException(status_code=401, detail="No refresh token - user must re-authorise.")
+        raise HTTPException(
+            status_code=501,
+            detail="Refresh-token secret storage is not configured. Reconnect Google or add a server-side secret manager.",
+        )
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -162,7 +185,7 @@ async def refresh_token(body: RefreshRequest):
 class GeminiRequest(BaseModel):
     user_id:   str
     prompt:    str
-    model:     str = "gemini-2.0-flash"
+    model:     str = GEMINI_MODEL
     mission:   str = "general"
 
 @router.post("/gemini/generate")
@@ -177,7 +200,7 @@ async def gemini_generate(body: GeminiRequest, request: Request):
 
     payload = {
         "contents": [{"role": "user", "parts": [{"text": body.prompt}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+        "generationConfig": {"temperature": 1.0, "maxOutputTokens": 2048},
     }
 
     headers = {}

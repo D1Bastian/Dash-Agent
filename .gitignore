@@ -49,4 +49,10 @@ superpowers/__pycache__/
 missions/__pycache__/
 render.yaml.bak
 
+# Internal planning docs (not for public repo)
+implementation_plan.md
+PLAN.md
+MISSION.md
+VIDEO_SCRIPT.md
+scratch/
 .env.local

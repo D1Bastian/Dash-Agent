@@ -121,6 +121,63 @@ class MasterOrchestrator:
                 ),
             ]
 
+        if mission_type == "travel-concierge":
+            return [
+                SubAgent(
+                    name="Travel Constraint Mapper",
+                    responsibility="Load home airport, passport, budget, dates, seat, layover, and stay preferences from the Mission Vault.",
+                    tools=("Gemini 3", "MongoDB Mission Vault"),
+                    consent_required=True,
+                ),
+                SubAgent(
+                    name="Flight Scout",
+                    responsibility="Search flight pages, handle autocomplete selection, and compare fare/date windows.",
+                    tools=("Browser Session", "Elastic Action Search"),
+                ),
+                SubAgent(
+                    name="Stay Scout",
+                    responsibility="Compare hotels and stays, including package timing and cancellation constraints.",
+                    tools=("Browser Session", "Elastic Action Search"),
+                ),
+                SubAgent(
+                    name="Price And Logistics",
+                    responsibility="Normalize total landed trip cost, baggage, taxes, connections, and arrival/departure friction.",
+                    tools=("Fivetran Pipeline", "Arize Observability"),
+                ),
+                SubAgent(
+                    name="Booking Gate",
+                    responsibility="Prepare booking details and stop before reservations, payment, or irreversible passenger changes.",
+                    tools=("Browser Session", "MongoDB Mission Vault"),
+                    consent_required=True,
+                ),
+            ]
+
+        if mission_type == "social-manager":
+            return [
+                SubAgent(
+                    name="Consent Broker",
+                    responsibility="Confirm which social accounts, public links, exports, or browser sessions can be used.",
+                    tools=("MongoDB Mission Vault", "OAuth", "Browser Session"),
+                    consent_required=True,
+                ),
+                SubAgent(
+                    name="Context Reader",
+                    responsibility="Read approved audience, tone, and content-history signals without storing raw social passwords.",
+                    tools=("Elastic Action Search", "MongoDB Mission Vault"),
+                ),
+                SubAgent(
+                    name="Content Strategist",
+                    responsibility="Draft posts, cadence, variants, and approval checkpoints for the requested campaign.",
+                    tools=("Gemini 3", "Arize Observability"),
+                ),
+                SubAgent(
+                    name="Publish Gate",
+                    responsibility="Schedule or publish only after explicit user approval.",
+                    tools=("Browser Session", "MongoDB Mission Vault"),
+                    consent_required=True,
+                ),
+            ]
+
         if mission_type == "gitlab-registration":
             return [
                 SubAgent(

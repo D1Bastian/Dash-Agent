@@ -1,129 +1,190 @@
-# Dash — Autonomous Consumer AI Agent
+# Dash â€” AI That Doesn't Just Answer. It Acts.
 
-> Natural language in. Real-world action out.
+**Live Demo â†’ [https://dash-agent.onrender.com](https://dash-agent.onrender.com)**
 
-Dash is an autonomous AI agent built on **Google Cloud Agent Builder** with **Gemini** as the reasoning engine. It moves beyond chat to plan, execute, and complete multi-step real-world tasks — booking travel, scouting gifts, creating accounts, and managing social media — while keeping humans in control at every critical checkpoint.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Built with Gemini](https://img.shields.io/badge/Powered%20by-Gemini%202.5-blue)](https://ai.google.dev)
+[![MongoDB](https://img.shields.io/badge/Partner-MongoDB-brightgreen)](https://www.mongodb.com)
+[![Elastic](https://img.shields.io/badge/Partner-Elastic-yellow)](https://www.elastic.co)
+[![GitLab](https://img.shields.io/badge/Partner-GitLab-orange)](https://gitlab.com)
+[![Arize](https://img.shields.io/badge/Partner-Arize-purple)](https://arize.com)
 
 ---
 
-## What Dash Does
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/command-center.png" alt="Dash command center â€” chat interface with mission cards" width="100%"/></td>
+    <td width="50%"><img src="docs/images/architecture.png" alt="Dash agent architecture â€” Gemini master agent routing to partner superpowers" width="100%"/></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The command surface â€” clean, conversational, action-oriented</sub></td>
+    <td align="center"><sub>Under the hood â€” Gemini orchestrating MongoDB, Elastic, GitLab, Arize &amp; Fivetran</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/login-screen.png" alt="Dash login â€” Google OAuth and demo entry" width="100%"/></td>
+    <td width="50%"><img src="docs/images/mission-flow.png" alt="Dash mission lifecycle â€” Discover, Plan, Form Fill, Verify, Sync" width="100%"/></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Identity verified by consent â€” Google OAuth or demo login</sub></td>
+    <td align="center"><sub>The 5-phase mission lifecycle with human checkpoint gate</sub></td>
+  </tr>
+</table>
 
-| Mission | Description |
+---
+
+
+## What Is Dash?
+
+Most AI tools are question-answering machines. Dash is different.
+
+Dash is a **real-world action agent** â€” a minimalist command surface powered by Gemini 2.5 that can plan, remember, browse, fill forms, register accounts, scout products, compare flights, and stop precisely when a human needs to be in the loop. It doesn't simulate these actions. It uses a live Playwright-driven browser, Gemini's reasoning, and a network of partner superpowers to actually *do things* on the web under your oversight.
+
+The design philosophy is **"Silent Power"**: the interface stays clean and conversational, all the heavy orchestration happens invisibly in the background, and you only see high-level outcomes â€” never raw DOM dumps, telemetry, or logs.
+
+---
+
+## What Dash Can Do
+
+| Mission | What happens |
 |---------|-------------|
-| ?? **Global Gift Scout** | Finds & ships the perfect gift internationally, checking social context and logistics constraints automatically |
-| ?? **Travel Concierge** | Spawns 3 parallel scouts (flights, hotels, Airbnb) to find the best package deals on the best dates |
-| ?? **Account Manager** | Creates, manages, and secures accounts across any platform using ARIA-based DOM navigation |
-| ?? **Social Manager** | Brainstorms, schedules, and auto-publishes content across platforms as a permanent workflow |
+| **Account Resolver** | Navigates to any registration or login page, uses Gemini to semantically map the form fields, fills them with approved profile data, and pauses at CAPTCHA, MFA, or email verification |
+| **Gift Scout** | Uses consented context (interests, age, budget, relationship), applies international shipping constraints, and ranks gift options by interest fit, price confidence, seller reliability, novelty, and delivery risk |
+| **Travel Concierge** | Plans flights, stays, dates, and package deals with full awareness of home airport, budget, and passport constraints â€” stops before booking |
+| **Shopping Scout** | Compares products with landed cost, return risk, international shipping availability, and checkout readiness |
+| **Social Manager** | Drafts campaigns, content calendars, and posting schedules â€” stops before publishing without explicit approval |
+| **Workflow Architect** | Designs durable recurring workflows with trigger conditions, tool steps, checkpoints, and autonomy levels |
 
 ---
 
-## The 5-Phase Mission Cycle
+## The Mission Lifecycle
+
+Every Dash task runs through five phases, displayed live in the UI:
 
 ```
-Find ? Read ? Type ? Check ? Save
+Find â†’ Read â†’ Prepare â†’ Check â†’ Save
 ```
 
-1. **Find** — Locate the right pages and options across the web
-2. **Read** — Deconstruct DOM text, map fields via ARIA labels, strip fluff
-3. **Type** — Enter details with real browser events, create accounts, prepare carts
-4. **Check** — Human-in-the-Loop gate for CAPTCHA, MFA, and payment
-5. **Save** — Store receipts, credentials, and context in the MongoDB Mission Vault
+1. **Find** â€” Route the request, locate the right pages or services, load user context from MongoDB
+2. **Read** â€” Deconstruct visible text, ARIA roles, labels, placeholders, form hierarchy, and button semantics using Playwright
+3. **Prepare** â€” Ask Gemini to map fields to approved profile keys, fill forms, draft content, or shortlist options
+4. **Check** â€” Pause immediately for CAPTCHA, MFA, email/phone verification, payment, publishing, or irreversible changes
+5. **Save** â€” Write high-level mission state, preferences, and non-secret session references back to MongoDB
 
 ---
 
-## Partner Integrations (MCP)
+## Partner Superpowers
 
-| Partner | MCP Superpower |
-|---------|---------------|
-| ?? **MongoDB** | Mission Vault — durable user memory, preferences, account references, mission state |
-| ?? **GitLab** | Mission Script library — versions and audits every execution plan |
-| ?? **Elastic** | Action Search — millisecond recall of previously solved DOM structures |
-| ??? **Arize** | Reasoning Observability — monitors agent health and form-fill success rates |
-| ?? **Fivetran** | Data Pipeline — streams mission events to the user data warehouse |
+Dash is built on six partner integrations that turn a smart chat interface into a capable agent:
+
+| Partner | Superpower | What It Enables |
+|---------|-----------|-----------------|
+| **MongoDB** | Mission Vault | Durable memory of user preferences, consent, context sources, and mission state. Dash remembers who you are so it never asks the same question twice |
+| **Elastic** | Action Search | Caches previously solved DOM/form mappings. If Dash has filled a form on a site before, it reuses the solution in milliseconds instead of re-querying Gemini |
+| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. Can provision repositories on your behalf via the GitLab API |
+| **Arize** | Observability | Traces Gemini reasoning chains, monitors form-fill success rates, and surfaces agent health data |
+| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results) to your data warehouse |
+| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance in real time |
+
+When credentials are not configured, every integration degrades gracefully to a dry-run mode â€” the app never crashes, never lies, and always tells you the real status.
 
 ---
 
 ## Architecture
 
 ```
-User (Natural Language)
-        ¦
-        ?
-  Dash-1 Master Agent (Gemini)
-        ¦
-   +---------+
-   ¦  MongoDB Mission Vault  ¦?-- Preferences, addresses, account refs
-   +---------+
-        ¦ spawns
-   +--------------------------+
-   ¦   Sub-Agents             ¦
-   ¦  · Product Scout         ¦
-   ¦  · Travel Scout (×3)     ¦
-   ¦  · Price/Logistics Agent ¦
-   ¦  · Account Resolver      ¦
-   ¦  · Social Manager        ¦
-   +--------------------------+
-        ¦
-        ?
-  HITL Gate (CAPTCHA / MFA / Payment)
-        ¦
-        ?
-  Action Complete ? Saved to Vault
+User prompt (chat)
+  â†’ Dash-1 Master Agent (Gemini 2.5)
+  â†’ MongoDB Mission Vault â€” load user context & memory
+  â†’ Mission Router â€” classify intent & spawn specialist sub-agents
+      â”œâ”€â”€ Account Resolver     (Playwright + Gemini DOM mapping)
+      â”œâ”€â”€ Product Scout        (price, shipping, ranking)
+      â”œâ”€â”€ Travel Concierge     (flight, stay, logistics)
+      â”œâ”€â”€ Gift Scout           (social context + ranked recommendations)
+      â”œâ”€â”€ Social Manager       (draft, schedule, gate before publish)
+      â””â”€â”€ Workflow Architect   (recurring mission design)
+  â†’ Human Checkpoint Gate      (CAPTCHA / MFA / payment / publish)
+  â†’ Elastic â€” cache solved actions
+  â†’ MongoDB â€” save mission state & non-secret session refs
+  â†’ Arize â€” log reasoning trace
 ```
+
+### Sub-Agent Roster
+
+- Identity Registrar â€” creates and hydrates the Mission Vault profile
+- Context Seeder â€” connects consented social, travel, and preference data sources
+- DOM Deconstructor â€” maps visible page semantics to a Gemini-readable snapshot
+- Form Operator â€” types with real keyboard/input/change events
+- Price & Logistics â€” compares landed costs and delivery timelines
+- GitLab Sync â€” versions mission scripts and provisions repos
+- Observability â€” sends traces to Arize
+- Human Checkpoint Monitor â€” detects CAPTCHA, MFA, verification, payment prompts and halts
 
 ---
 
-## User Stories
+## Safety Design
 
-### Persona A — The Gift Sender
-> "I want to send a gift for my nephew in Trinidad. He has social media. I want suggestions and the best prices."
+Dash is designed around human oversight, not around autonomy for its own sake.
 
-Dash checks the vault, skips vendors that don't ship to Trinidad, scouts products using social context, ranks by fit/price/delivery confidence, builds the cart, and stops for approval.
-
-### Persona B — The Traveller
-> "Best rates for flights, best dates, package deals with hotels and Airbnb."
-
-Dash spawns 3 parallel Travel Scouts, reads live DOM from booking sites, synthesizes the cheapest date windows and package combinations, then books on command.
+- **No raw credentials ever leave the client.** Passwords, tokens, and recovery codes are never sent to Gemini, never logged, and never stored as plaintext.
+- **Five explicit human gates.** Payment, booking, CAPTCHA, MFA, email/phone verification, publishing, and irreversible account changes always stop for approval.
+- **Context by consent.** Social sources use OAuth, public links, user exports, or browser handoff. Dash never asks for raw social media passwords.
+- **Silent logs.** Raw DOM structure, CSS selectors, telemetry, and reasoning traces stay behind the curtain. Users see only high-level mission outcomes.
 
 ---
 
 ## Running Locally
 
 ```bash
-# Install backend dependencies
+# Clone and install
+git clone https://github.com/YOUR_USERNAME/infinite-action-agent.git
+cd infinite-action-agent
 pip install -r requirements.txt
+playwright install chromium
 
-# Start the API server
-python api/index.py
+# Configure
+cp .env.example .env.local
+# Fill in your GEMINI_API_KEY, MONGO_URI, etc.
 
-# Serve the frontend
-# Open index.html in a browser or use a static server
+# Run
+uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-API runs on `http://localhost:8000`. The frontend auto-detects local vs. hosted API.
+Open `http://127.0.0.1:8000` â€” use **Demo Login** to explore without OAuth setup.
 
 ---
 
-## Safety & Privacy
+## Deployment (Render)
 
-- **No raw passwords stored** — only vault references and authorized session tokens
-- **HITL gates** — CAPTCHA, MFA, phone/email verification always pause for human input
-- **Payment gate** — purchases never executed without explicit user confirmation
-- **Social context by consent** — OAuth or user-approved exports only; no scraping credentials
-- **Deleteable context** — every vault entry has source, scope, expiry, and deletion metadata
+The included [`render.yaml`](render.yaml) defines the full service. After connecting your GitHub repo on [render.com](https://render.com):
+
+1. Set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com)
+2. Set `MONGO_URI` from [MongoDB Atlas](https://cloud.mongodb.com)
+3. Set partner keys for Elastic, Arize, Fivetran, GitLab as desired
+4. Render auto-deploys on every push
+
+See [`.env.example`](.env.example) for the full list of supported environment variables.
 
 ---
 
-## Hackathon Submission
+## Health Check
 
-- **Track:** MongoDB (primary) + GitLab, Elastic, Arize, Fivetran
-- **Challenge:** Building Agents for Real-World Challenges — Everyday Consumer Verticals
-- **Built with:** Google Cloud Agent Builder · Gemini · MongoDB MCP · GitLab MCP · Elastic MCP · Arize MCP · Fivetran MCP
+```bash
+curl https://dash-agent.onrender.com/health
+curl https://dash-agent.onrender.com/health/partners
+```
+
+The `/health` endpoint reports Gemini model, API key status, and which partner integrations are live vs. dry-run. The `/health/partners` endpoint pings each service and returns real latency measurements.
+
+---
+
+## Hackathon Track
+
+**Primary: MongoDB** â€” The Mission Vault is the backbone of everything Dash does. Without persistent, consented memory, the agent would be stateless and would ask the same questions on every run. MongoDB turns Dash from a one-shot tool into a trusted assistant that compounds its knowledge over time.
+
+**Secondary proof points:** Elastic (action recall), Arize (observability), GitLab (script versioning), Fivetran (event pipeline), Dynatrace (telemetry).
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT â€” see [LICENSE](LICENSE).

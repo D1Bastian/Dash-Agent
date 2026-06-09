@@ -260,6 +260,16 @@ body.time-dusk .horizon-wash {
   font-size: 0.85rem;
 }
 
+.health-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  margin-left: 4px;
+  transition: background 0.3s ease;
+}
+
 .nav-links {
   position: absolute;
   left: 50%;

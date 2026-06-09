@@ -1,37 +1,40 @@
-import os
-
-from .mcp_client import MCPClient
-
+import httpx
+import logging
 
 class GitLabSync:
     """
-    GitLab Mission Sync.
-
-    The first hackathon video uses GitLab as the partner track: after the
-    browser registration checkpoint succeeds, Dash provisions a mission
-    repository and writes the mission script through GitLab MCP tools.
+    Dash-1: GitLab API Sync Integration
+    Automates repository and CI/CD setup via the GitLab API.
     """
-
     def __init__(self):
-        self.client = MCPClient("gitlab")
+        self.api_url = "https://gitlab.com/api/v4"
 
-    async def create_mission_repository(self, username: str):
-        """Creates the repo used as the mission audit trail."""
-        safe_username = username.replace(" ", "-").lower() or "demo-user"
-        return await self.client.call_tool("create_repository", {
-            "name": f"dash-mission-log-{safe_username}",
-            "description": "Dash Agent GitLab registration mission audit trail.",
-            "initialize_with_readme": True,
-            "visibility": "private"
-        })
+    async def create_repository(self, token: str, name: str, description: str = "Dash Agent Mission Vault", visibility: str = "public") -> dict:
+        """Creates a new repository on GitLab."""
+        url = f"{self.api_url}/projects"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "name": name,
+            "description": description,
+            "visibility": visibility
+        }
 
-    async def push_mission_script(self, project_id, script_content, branch: str = "main"):
-        """Versions the latest deconstructed DOM mission script to GitLab."""
-        mission_id = os.getenv("MISSION_ID", "gitlab-registration")
-        return await self.client.call_tool("create_or_update_file", {
-            "project_id": project_id,
-            "file_path": f"missions/{mission_id}.py",
-            "content": script_content,
-            "commit_message": "Dash Agent: sync GitLab registration mission",
-            "branch": branch
-        })
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+                response.raise_for_status()
+                data = response.json()
+                return {
+                    "ok": True,
+                    "project_id": data.get("id"),
+                    "repo_url": data.get("web_url")
+                }
+        except httpx.HTTPStatusError as e:
+            logging.error(f"GitLab API Error: {e.response.text}")
+            return {"ok": False, "error": f"HTTP {e.response.status_code}: {e.response.text}"}
+        except Exception as e:
+            logging.error(f"GitLabSync error: {str(e)}")
+            return {"ok": False, "error": str(e)}

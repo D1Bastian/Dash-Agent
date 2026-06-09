@@ -24,7 +24,7 @@
     localStorage.setItem("dash-state-v1", JSON.stringify(newState));
     // Load persistent memory from MongoDB Vault if provider is not demo
     if (provider !== "demo") {
-      fetch(`${API_BASE}/api/vault/load`, { headers: { "Authorization": `Bearer ${token}` } })
+      fetch(`${API_BASE}/api/vault/load?user_id=${encodeURIComponent(user_id || "anonymous")}`, { headers: { "Authorization": `Bearer ${token}` } })
         .then(res => res.json())
         .then(data => {
           // Merge loaded memory into state
@@ -39,7 +39,7 @@
   } else if (searchParams.get("auth") === "demo") {
     const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
     const newState = saved || { user: {} };
-    newState.user = { id: "demo-authorized", name: "Sarah K.", email: "sarah@example.com", country: "United States", currency: "USD", homeAirport: "SFC" };
+    newState.user = { id: "demo-authorized", name: "Sarah K.", email: "sarah@example.com", country: "United States", currency: "USD", homeAirport: "SFO" };
     localStorage.setItem("dash-state-v1", JSON.stringify(newState));
     // Clean up URL
     window.history.replaceState(null, null, window.location.pathname);
@@ -60,6 +60,21 @@
 
   setAmbientMode();
   setInterval(setAmbientMode, 5 * 60 * 1000);
+
+  async function pollHealth() {
+    try {
+      const res = await fetch(`${API_BASE}/health/partners`);
+      const data = await res.json();
+      const allUp = Object.values(data).some(i => i.status === "up");
+      const dot = document.getElementById("nav-health-dot");
+      if (dot) dot.style.backgroundColor = allUp ? "var(--ok)" : "var(--danger)";
+    } catch {
+      const dot = document.getElementById("nav-health-dot");
+      if (dot) dot.style.backgroundColor = "var(--danger)";
+    }
+  }
+  setTimeout(pollHealth, 1000);
+  setInterval(pollHealth, 60000);
 
   const phases = [
     ["find", "Find"],
@@ -325,6 +340,7 @@
       workflows: renderWorkflows,
       analytics: renderAnalytics,
       team: renderTeam,
+      partners: renderPartners,
       marketplace: renderMarketplace,
       settings: renderSettings,
       vault: renderVault,
@@ -502,6 +518,11 @@
           <label class="field">Preferred currency
             <input data-setting="currency" value="${escapeHTML(state.user.currency)}">
           </label>
+        <div class="detail-card">
+          <h3>Superpowers</h3>
+          <p>Test your GitLab configuration by creating a new repository for your mission scripts.</p>
+          <button class="primary-btn" type="button" data-action="test-gitlab" style="margin-top: 10px;">Test GitLab Sync</button>
+        </div>
         </div>
         <div class="detail-card">
           <h3>Safety defaults</h3>
@@ -576,6 +597,45 @@
       <button class="subtle-btn" type="button" data-action="mark-messages-read">Mark read</button>
     `);
     els.workspaceContent.innerHTML = messageList();
+  }
+
+  async function renderPartners() {
+    setWorkspace("Superpowers", "Partner Integrations", `
+      <button class="subtle-btn" type="button" onclick="renderWorkspace('partners')"><i class="fa-solid fa-rotate"></i> Refresh Pings</button>
+    `);
+    els.workspaceContent.innerHTML = \`<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Pinging partners...</p></div>\`;
+    
+    try {
+      const res = await fetch(\`\${API_BASE}/health/partners\`);
+      const data = await res.json();
+      
+      const cards = Object.entries(data).map(([name, info]) => {
+        const isUp = info.status === "up";
+        const isDryRun = info.status === "dry-run";
+        const statusClass = isUp ? "ok" : isDryRun ? "warn" : "down";
+        const statusText = isUp ? "Connected" : isDryRun ? "Dry-run mode" : "Error";
+        const msText = info.latency_ms ? \`\${info.latency_ms}ms\` : "--";
+        
+        return \`
+          <div class="detail-card">
+            <span class="status-tag \${statusClass}">\${statusText}</span>
+            <h3 style="text-transform: capitalize;">\${name}</h3>
+            <p>\${escapeHTML(info.role)}</p>
+            <footer><span>Latency</span><strong>\${msText}</strong></footer>
+          </div>
+        \`;
+      }).join("");
+      
+      els.workspaceContent.innerHTML = \`<div class="grid-3">\${cards}</div>\`;
+      
+      const dot = document.getElementById("nav-health-dot");
+      if (dot) {
+        const allUp = Object.values(data).some(i => i.status === "up");
+        dot.style.backgroundColor = allUp ? "var(--color-success)" : "var(--color-warning)";
+      }
+    } catch (err) {
+      els.workspaceContent.innerHTML = \`<div class="empty-state"><h3>Ping Failed</h3><p>\${escapeHTML(err.message)}</p></div>\`;
+    }
   }
 
   function metric(label, value, body) {
@@ -662,114 +722,110 @@
       .filter(([, value]) => value && !Array.isArray(value))
       .map(([key, value]) => `${key}: ${value}`)
       .join("; ");
-    await executeMission(type, `${mission.prompt} ${summary || "Let Dash infer the next question."}`, payload);
+    await executeMission(type, summary, payload);
   }
 
-  function classifyPrompt(prompt) {
-    const text = prompt.toLowerCase();
-    if (/(flight|hotel|airbnb|travel|trip|destination|dates)/.test(text)) return "travel";
-    if (/(gift|birthday|present|occasion)/.test(text)) return "gifts";
-    if (/(shop|buy|price|deal|shipping|amazon|product)/.test(text)) return "shopping";
-    if (/(social|post|linkedin|instagram|campaign|content)/.test(text)) return "social";
-    if (/(workflow|recurring|every week|automate|permanent)/.test(text)) return "workflow";
-    return "task";
-  }
+  // ── Conversation history (persists for the lifetime of the session) ──────────
+  let conversationHistory = [];  // [{role:"user"|"assistant", content:"..."}]
 
-  async function executeMission(type, prompt, payload = {}) {
-    const mission = missionCatalog[type] || missionCatalog.task;
-    const missionId = `${type}-${Date.now()}`;
-    state.activeMission = { id: missionId, type, prompt };
+  // The ONE function that handles all user input — no task classification needed.
+  // Gemini decides what to do based on the full conversation.
+  async function sendMessage(prompt) {
+    if (!prompt.trim()) return;
+
+    // Show chat panel
     els.chatSection.hidden = false;
-    els.missionTitle.textContent = mission.label;
-    els.chatThread.innerHTML = "";
-    renderMissionPhases("find");
-    addMessage("user", formatMarkdown(prompt));
+    els.missionTitle.textContent = "Dash";
 
-    // Phase 1: Find — animated thinking indicator
+    // Add user message to history and UI
+    conversationHistory.push({ role: "user", content: prompt });
+    addMessage("user", escapeHTML(prompt));
+
+    // Show thinking indicator
     const thinkingNode = addThinkingBubble();
-    await softPause(600);
-    renderMissionPhases("read");
-    thinkingNode.textContent = "Selecting agents and loading context...";
-    await softPause(500);
+    renderMissionPhases("find");
+
+    const streamNode = addStreamBubble();
+    let fullText = "";
 
     try {
-      renderMissionPhases("type");
+      renderMissionPhases("read");
       thinkingNode.remove();
+      renderMissionPhases("type");
 
-      // Phase 2: Stream live Gemini response
-      const streamNode = addStreamBubble();
-      let finalText = "";
-
-      await callMissionStream(type, prompt, payload, (chunk) => {
-        finalText = chunk;
-        streamNode.innerHTML = formatMarkdown(chunk) + `<span class="cursor-blink">▍</span>`;
-        streamNode.scrollIntoView({ block: "nearest" });
+      // Stream from /chat with full conversation history
+      const resp = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: state.user.id,
+          history: conversationHistory,
+        }),
       });
 
-      // Clean up cursor
-      streamNode.innerHTML = formatMarkdown(finalText);
-
-      const needsHuman = ["travel", "gifts", "shopping", "social", "workflow"].includes(type);
-      await softPause(400);
-      renderMissionPhases(needsHuman ? "check" : "save");
-
-      if (needsHuman) {
-        addMessage("agent", "⏸️ <strong>Checkpoint reached.</strong> Dash prepared the above. Your approval is required before any booking, purchase, or publishing action.");
-        openCheckpoint(type, { status: "ok" });
-      } else {
-        completeMission(type, { status: "ok", text: finalText });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(txt || `Request failed: ${resp.status}`);
       }
-    } catch (error) {
+
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const lines = decoder.decode(value, { stream: true }).split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            try {
+              const json = JSON.parse(line.slice(5).trim());
+              if (json.text !== undefined) {
+                fullText = json.text;
+                streamNode.innerHTML = formatMarkdown(fullText) + `<span class="cursor-blink">▍</span>`;
+                streamNode.scrollIntoView({ block: "nearest" });
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      streamNode.innerHTML = formatMarkdown(fullText);
+      renderMissionPhases("save", true);
+
+      // Add assistant response to history so next message has context
+      if (fullText.trim()) {
+        conversationHistory.push({ role: "assistant", content: fullText });
+      }
+
+    } catch (err) {
       thinkingNode?.remove();
+      streamNode.remove();
       renderMissionPhases("check");
-      addMessage("agent", `⚠️ Mission paused: ${escapeHTML(error.message || String(error))}`);
-      notify("Mission paused", "An endpoint or configuration issue needs attention.", true, "analytics");
+      addMessage("agent", `⚠️ ${escapeHTML(err.message || String(err))}`);
     }
   }
 
-  // ── Real streaming mission caller ─────────────────────────────────────
+  // Keep callMissionStream for modal-based structured missions (shopping, travel, etc)
+  // but route them through /chat as well so history is maintained
   async function callMissionStream(type, prompt, payload, onChunk) {
-    const user_id = state.user.id;
-    // Enrich payload with Elastic search results if applicable
-    if (payload && payload.query) {
-      try {
-        const elasticResp = await fetch(`${API_BASE}/search/elastic`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: payload.query })
-        });
-        const elasticData = await elasticResp.json();
-        // Merge elastic results into payload under `elastic` key
-        payload.elastic = elasticData;
-      } catch (e) {
-        console.warn("Elastic enrichment failed:", e);
-      }
-    }
+    // Build a rich prompt from the modal payload
+    const payloadSummary = Object.entries(payload || {})
+      .filter(([k, v]) => v && k !== "sources" && k !== "elastic")
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("; ");
+    const fullPrompt = payloadSummary ? `${prompt} — ${payloadSummary}` : prompt;
 
-    const body = { user_id, prompt, mission_type: type, context: payload };
+    conversationHistory.push({ role: "user", content: fullPrompt });
 
-    // Route structured missions to their dedicated endpoints first
-    const structuredRoutes = {
-      travel: "/missions/travel-concierge",
-      shopping: "/missions/shopping-scout",
-      gifts: "/missions/gift-scout",
-      social: "/missions/social-manager",
-      workflow: "/missions/social-manager",
-    };
-
-    // Use the streaming endpoint for all missions
-    const resp = await fetch(`${API_BASE}/missions/execute/stream`, {
+    const resp = await fetch(`${API_BASE}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ user_id: state.user.id, history: conversationHistory }),
     });
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      throw new Error(txt || `Mission failed: ${resp.status}`);
-    }
+    if (!resp.ok) throw new Error(await resp.text() || `Failed: ${resp.status}`);
 
-    const reader = resp.body.getReader();
+    const reader  = resp.body.getReader();
     const decoder = new TextDecoder();
     let accumulated = "";
 
@@ -781,17 +837,44 @@
         if (line.startsWith("data:")) {
           try {
             const json = JSON.parse(line.slice(5).trim());
-            if (json.text) {
-              accumulated += json.text;
-              onChunk(accumulated);
-            }
-            if (json.error) throw new Error(json.error);
-          } catch (e) { /* skip malformed chunks */ }
+            if (json.text !== undefined) { accumulated += json.text; onChunk(accumulated); }
+          } catch (_) {}
         }
       }
     }
+    if (accumulated.trim()) conversationHistory.push({ role: "assistant", content: accumulated });
     return { status: "ok", text: accumulated };
   }
+
+  // Keep collectInlineProfile and executeMission for modal flows
+  async function executeMission(type, prompt, payload = {}) {
+    const mission = missionCatalog[type] || missionCatalog.task;
+    els.chatSection.hidden = false;
+    els.missionTitle.textContent = mission.label;
+    renderMissionPhases("find");
+    addMessage("user", formatMarkdown(prompt));
+    const thinkingNode = addThinkingBubble();
+    await softPause(600);
+    thinkingNode.remove();
+    renderMissionPhases("type");
+    const streamNode = addStreamBubble();
+    let finalText = "";
+    try {
+      await callMissionStream(type, prompt, payload, (chunk) => {
+        finalText = chunk;
+        streamNode.innerHTML = formatMarkdown(chunk) + `<span class="cursor-blink">▍</span>`;
+        streamNode.scrollIntoView({ block: "nearest" });
+      });
+      streamNode.innerHTML = formatMarkdown(finalText);
+      renderMissionPhases("save", true);
+    } catch (err) {
+      thinkingNode?.remove();
+      renderMissionPhases("check");
+      addMessage("agent", `⚠️ ${escapeHTML(err.message || String(err))}`);
+    }
+  }
+
+
 
   function splitList(value) {
     return String(value || "")
@@ -997,12 +1080,7 @@
 
   async function connectSource(source) {
     if (source === "google") {
-      const result = await requestJSON("/auth/google/url");
-      if (result.demo_mode || !result.url) {
-        notify("Google demo mode", "OAuth is not configured locally, so Dash staged a consent reference only.", true, "vault");
-        return;
-      }
-      window.open(result.url, "_blank", "noopener,noreferrer");
+      window.location.href = `${API_BASE}/auth/google/url`;
       return;
     }
     notify("Connection staged", `${source} will use an approved OAuth, vault reference, or browser handoff flow.`, true, "marketplace");
@@ -1076,7 +1154,7 @@
       const prompt = input.value.trim();
       if (!prompt) return;
       input.value = "";
-      await executeMission(classifyPrompt(prompt), prompt);
+      await sendMessage(prompt);
     });
 
     els.modalForm.addEventListener("submit", handleModalSubmit);
@@ -1087,7 +1165,11 @@
     document.getElementById("drawer-close").addEventListener("click", () => { els.drawer.hidden = true; });
     document.getElementById("scroll-left").addEventListener("click", () => els.cards.scrollBy({ left: -260, behavior: "smooth" }));
     document.getElementById("scroll-right").addEventListener("click", () => els.cards.scrollBy({ left: 260, behavior: "smooth" }));
-    document.getElementById("clear-mission").addEventListener("click", () => { els.chatSection.hidden = true; });
+    document.getElementById("clear-mission").addEventListener("click", () => {
+      els.chatSection.hidden = true;
+      els.chatThread.innerHTML = "";
+      conversationHistory = [];   // fresh conversation
+    });
     document.getElementById("btn-hitl-deny").addEventListener("click", () => {
       els.hitl.hidden = true;
       renderMissionPhases("check");
@@ -1114,6 +1196,26 @@
     });
   }
 
+  async function testGitlab() {
+    els.workspaceContent.innerHTML = `<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Creating repository...</p></div>`;
+    try {
+      const res = await fetch(`${API_BASE}/missions/gitlab-sync`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const data = await res.json();
+      if (data.ok) {
+        if (data.mode === "dry-run") {
+          notify("GitLab Sync", data.message, false, "settings");
+        } else {
+          notify("GitLab Sync Success", `Repository created at ${data.repo_url}`, false, "settings");
+        }
+      } else {
+        notify("GitLab Sync Failed", data.error, true, "settings");
+      }
+    } catch (err) {
+      notify("GitLab Error", err.message, true, "settings");
+    }
+    renderSettings();
+  }
+
   async function handleAction(action) {
     const actions = {
       "refresh-architecture": loadArchitecture,
@@ -1127,6 +1229,7 @@
       "save-settings": saveSettings,
       "register-user": registerUser,
       "connect-google": () => connectSource("google"),
+      "test-gitlab": testGitlab,
       "invite-member": () => notify("Invite staged", "Team invitations need an email service before sending.", true, "team"),
       "social-source": () => notify("Social source staged", "Dash will ask for consent before reading any social context.", true, "social"),
       "simulate-payment-gate": () => openCheckpoint("shopping", { status: "demo" }),

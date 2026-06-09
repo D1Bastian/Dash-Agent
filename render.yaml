@@ -45,5 +45,31 @@ services:
         placeholder: "https://your-render-url.onrender.com"
       - key: PYTHON_VERSION
         value: 3.12.3
-
-
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-preview-05-20
+      - key: DYNATRACE_API_URL
+        sync: false
+        placeholder: "Your Dynatrace API URL"
+      - key: DYNATRACE_API_TOKEN
+        sync: false
+        placeholder: "Your Dynatrace API Token"
+      - key: GITLAB_TOKEN
+        sync: false
+        placeholder: "Your GitLab Personal Access Token"
+      - key: DASH_REG_FIRST_NAME
+        sync: false
+        placeholder: "Demo user first name for GitLab registration"
+      - key: DASH_REG_LAST_NAME
+        sync: false
+        placeholder: "Demo user last name for GitLab registration"
+      - key: DASH_REG_USERNAME
+        sync: false
+        placeholder: "Demo GitLab username"
+      - key: DASH_REG_EMAIL
+        sync: false
+        placeholder: "Demo email for GitLab registration"
+      - key: DASH_REG_PASSWORD
+        sync: false
+        placeholder: "Demo password (never logged)"
+      - key: DASH_HEADLESS
+        value: "true"
