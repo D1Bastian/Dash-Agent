@@ -362,7 +362,7 @@ body.time-night .nav-link {
 .nav-link:hover,
 .nav-link.is-active {
   background: #ffffff;
-  color: var(--ink);
+  color: #0f1423;
   box-shadow: 0 1px 0 rgba(18, 39, 45, 0.06);
 }
 
