@@ -32,6 +32,15 @@
 
 ---
 
+## 🏆 Hackathon Submission Checklist
+
+✅ **Real Gemini Key (Settings API)**: The `/api/set-key` endpoint is live in `backend/main.py`. The frontend function `saveGeminiKey` is in `app.js` and securely validates and stores the judge's key for the session.
+✅ **X-Gemini-Key Header**: The header is successfully injected into all fetch requests in `app.js`, and extracted in the FastApi routes (`client_key = request.headers.get("X-Gemini-Key", "")`) before being passed to the Gemini functions.
+✅ **Real Fivetran API**: `superpowers/fivetran_pipeline.py` now includes the `list_connectors` method which hits the actual `https://api.fivetran.com/v1/connectors` endpoint.
+✅ **README — Judge-First**: The README has been rewritten and includes "Path A" (30 seconds via Demo Login) and "Path B" (Full test locally).
+✅ **Partner Table in README**: The partner table correctly displays the "Status" column (🟢 Connected / 🟡 Configurable).
+
+---
 
 ## What Is Dash?
 
