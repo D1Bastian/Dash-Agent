@@ -3,14 +3,16 @@ import logging
 import httpx
 import base64
 
+
 class FivetranPipeline:
     """
     Dash-1: Fivetran Data Pipeline
     Automates the flow of mission-captured data into the user's data warehouse.
     """
     def __init__(self):
-        self.api_key = os.getenv("FIVETRAN_API_KEY")
-        self.api_secret = os.getenv("FIVETRAN_API_SECRET")
+        from backend.config import resolve_config
+        self.api_key = resolve_config("FIVETRAN_API_KEY") or os.getenv("FIVETRAN_API_KEY")
+        self.api_secret = resolve_config("FIVETRAN_API_SECRET") or os.getenv("FIVETRAN_API_SECRET")
         self.endpoint = "https://api.fivetran.com/v1"
         if not self.api_key or not self.api_secret:
             logging.warning("FIVETRAN_API_KEY or FIVETRAN_API_SECRET not set, FivetranPipeline running in dry-run mode.")

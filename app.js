@@ -501,6 +501,7 @@
   }
 
   function renderSettings() {
+    const partnerConfig = JSON.parse(localStorage.getItem('dash-partner-config') || '{}');
     setWorkspace("Preferences", "Settings", `
       <button class="primary-btn" type="button" data-action="save-settings">Save</button>
     `);
@@ -508,12 +509,50 @@
       <div class="content-stack">
         <div class="vault-section" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:0.5rem;">
           <h3 style="margin:0 0 0.4rem;"><i class="fa-solid fa-key"></i> API Keys <span class="tag-pill" style="background:var(--ok);color:#000;font-size:0.7rem;margin-left:8px;padding:2px 8px;border-radius:99px;font-weight:600;">Judge Setup</span></h3>
-          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Gemini API key to activate all AI features. Validated live — no restart needed.</p>
-          <div style="display:flex;gap:0.5rem;align-items:center;">
-            <input id="gemini-key-input" type="password" class="input-field" placeholder="AIza..." style="flex:1;font-family:monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.55rem 0.9rem;color:var(--text);font-size:0.95rem;" value="${localStorage.getItem('dash-gemini-key') || ''}">
+          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Gemini API key to activate AI features. Partner keys can be added below for live integrations.</p>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+            <input id="gemini-key-input" type="password" class="input-field" placeholder="Gemini API key" style="flex:1;min-width:220px;font-family:monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.55rem 0.9rem;color:var(--text);font-size:0.95rem;" value="${localStorage.getItem('dash-gemini-key') || ''}">
             <button class="primary-btn" onclick="saveGeminiKey()" style="white-space:nowrap;"><i class="fa-solid fa-check"></i> Validate &amp; Save</button>
           </div>
           <p id="gemini-key-status" style="font-size:0.82rem;margin-top:0.5rem;color:var(--muted);"></p>
+        </div>
+        <div class="vault-section" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:0.5rem;">
+          <h3 style="margin:0 0 0.4rem;"><i class="fa-solid fa-plug"></i> Partner Keys</h3>
+          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste any live partner service keys you want Dash to use for this session. These values are stored locally in your browser and sent to the backend for temporary use.</p>
+          <div class="grid-2" style="gap:0.75rem;">
+            <label class="field">Elastic Cloud ID
+              <input id="elastic-cloud-id" value="${escapeHTML(partnerConfig.elastic_cloud_id || '')}" placeholder="cloud-id:...">
+            </label>
+            <label class="field">Elastic API Key
+              <input id="elastic-api-key" value="${escapeHTML(partnerConfig.elastic_api_key || '')}" placeholder="base64 key...">
+            </label>
+            <label class="field">Arize API Key
+              <input id="arize-api-key" value="${escapeHTML(partnerConfig.arize_api_key || '')}" placeholder="arize key...">
+            </label>
+            <label class="field">Arize Space ID
+              <input id="arize-space-id" value="${escapeHTML(partnerConfig.arize_space_id || '')}" placeholder="space id...">
+            </label>
+            <label class="field">Fivetran API Key
+              <input id="fivetran-api-key" value="${escapeHTML(partnerConfig.fivetran_api_key || '')}" placeholder="fivetran key...">
+            </label>
+            <label class="field">Fivetran API Secret
+              <input id="fivetran-api-secret" value="${escapeHTML(partnerConfig.fivetran_api_secret || '')}" placeholder="fivetran secret...">
+            </label>
+            <label class="field">GitLab Token
+              <input id="gitlab-token" value="${escapeHTML(partnerConfig.gitlab_token || '')}" placeholder="gitlab token...">
+            </label>
+            <label class="field">Dynatrace URL
+              <input id="dynatrace-api-url" value="${escapeHTML(partnerConfig.dynatrace_api_url || '')}" placeholder="https://...">
+            </label>
+            <label class="field">Dynatrace Token
+              <input id="dynatrace-api-token" value="${escapeHTML(partnerConfig.dynatrace_api_token || '')}" placeholder="dynatrace token...">
+            </label>
+            <label class="field">Mongo URI
+              <input id="mongo-uri" value="${escapeHTML(partnerConfig.mongo_uri || '')}" placeholder="mongodb+srv://...">
+            </label>
+          </div>
+          <button class="primary-btn" type="button" onclick="savePartnerConfig()" style="margin-top:1rem;white-space:nowrap;"><i class="fa-solid fa-floppy-disk"></i> Save Partner Keys</button>
+          <p id="partner-key-status" style="font-size:0.82rem;margin-top:0.5rem;color:var(--muted);"></p>
         </div>
         <div class="grid-2">
           <label class="field">Display name
@@ -1397,6 +1436,66 @@ window.saveGeminiKey = async function(inputId = 'gemini-key-input', statusId = '
       localStorage.setItem('dash-gemini-key', key);
       if (status) {
         status.textContent = '✅ ' + data.message;
+        status.style.color = 'var(--ok)';
+      }
+    } else {
+      if (status) {
+        status.textContent = '❌ ' + data.message;
+        status.style.color = 'var(--danger)';
+      }
+    }
+  } catch (e) {
+    if (status) {
+      status.textContent = '❌ Network error: ' + e.message;
+      status.style.color = 'var(--danger)';
+    }
+  }
+};
+
+window.savePartnerConfig = async function() {
+  const status = document.getElementById('partner-key-status');
+  if (status) {
+    status.textContent = 'Saving configuration...';
+    status.style.color = '';
+  }
+
+  const payload = {
+    elastic_cloud_id: document.getElementById('elastic-cloud-id')?.value?.trim() || null,
+    elastic_api_key: document.getElementById('elastic-api-key')?.value?.trim() || null,
+    arize_api_key: document.getElementById('arize-api-key')?.value?.trim() || null,
+    arize_space_id: document.getElementById('arize-space-id')?.value?.trim() || null,
+    fivetran_api_key: document.getElementById('fivetran-api-key')?.value?.trim() || null,
+    fivetran_api_secret: document.getElementById('fivetran-api-secret')?.value?.trim() || null,
+    gitlab_token: document.getElementById('gitlab-token')?.value?.trim() || null,
+    dynatrace_api_url: document.getElementById('dynatrace-api-url')?.value?.trim() || null,
+    dynatrace_api_token: document.getElementById('dynatrace-api-token')?.value?.trim() || null,
+    mongo_uri: document.getElementById('mongo-uri')?.value?.trim() || null,
+  };
+
+  const savedConfig = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (value) savedConfig[key] = value;
+  }
+
+  if (!Object.keys(savedConfig).length) {
+    if (status) {
+      status.textContent = 'Enter at least one partner key to save.';
+      status.style.color = 'var(--danger)';
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`${window.location.origin}/api/set-keys`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      localStorage.setItem('dash-partner-config', JSON.stringify(savedConfig));
+      if (status) {
+        status.textContent = '✅ Partner configuration saved for this browser session.';
         status.style.color = 'var(--ok)';
       }
     } else {

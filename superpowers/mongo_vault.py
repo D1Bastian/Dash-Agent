@@ -7,13 +7,15 @@ try:
 except ImportError:
     AsyncIOMotorClient = None
 
+
 class MongoVault:
     """
     Dash-1: MongoDB Mission Vault Integration
     Powers the secure storage of deconstructed DOM paths and user preferences.
     """
     def __init__(self):
-        self.uri = os.getenv("MONGO_URI")
+        from backend.config import resolve_config
+        self.uri = resolve_config("MONGO_URI") or os.getenv("MONGO_URI")
         if self.uri and AsyncIOMotorClient:
             self.client = AsyncIOMotorClient(self.uri)
             self.db = self.client.get_database("dash_agent")

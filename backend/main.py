@@ -21,11 +21,11 @@ from superpowers.fivetran_pipeline import FivetranPipeline
 from superpowers.mongo_vault import MongoVault
 from backend.orchestrator import MasterOrchestrator, serialize_agents
 from backend.auth import router as auth_router
+from backend.config import DYNAMIC_CONFIG, resolve_config, is_configured
 
 ROOT = Path(__file__).resolve().parents[1]
 
 # ── Env vars ────────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
 GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "low")
@@ -102,7 +102,7 @@ def gemini_generation_config(model: str) -> dict[str, Any]:
 
 async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL, api_key: str = "") -> str:
     """Call Gemini. Accepts client key via api_key param (from X-Gemini-Key header)."""
-    key = api_key or GEMINI_API_KEY
+    key = api_key or resolve_config("GEMINI_API_KEY")
     if not key:
         raise HTTPException(status_code=503, detail="No Gemini API key configured. Add GEMINI_API_KEY to environment or pass X-Gemini-Key header.")
 
@@ -124,7 +124,7 @@ async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL, api_k
 
 async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL, api_key: str = ""):
     """Stream a multi-turn Gemini conversation. history = [{role, content}, ...]"""
-    key = api_key or GEMINI_API_KEY
+    key = api_key or resolve_config("GEMINI_API_KEY")
     if not key:
         yield f"data: {json.dumps({'error': 'No Gemini API key configured. Pass X-Gemini-Key header or set GEMINI_API_KEY.'})}\n\n"
         return
@@ -159,7 +159,7 @@ async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL,
 
 async def gemini_stream(prompt: str, system: str = "", model: str = GEMINI_MODEL, api_key: str = ""):
     """Single-turn SSE stream (kept for backward compat with older endpoints)."""
-    key = api_key or GEMINI_API_KEY
+    key = api_key or resolve_config("GEMINI_API_KEY")
     if not key:
         yield f"data: {json.dumps({'error': 'No Gemini API key configured. Pass X-Gemini-Key header or set GEMINI_API_KEY.'})}\n\n"
         return
@@ -276,44 +276,92 @@ class KeySetRequest(BaseModel):
     gemini_api_key: str
 
 
+class ApiKeysRequest(BaseModel):
+    gemini_api_key: str | None = None
+    elastic_cloud_id: str | None = None
+    elastic_api_key: str | None = None
+    arize_api_key: str | None = None
+    arize_space_id: str | None = None
+    fivetran_api_key: str | None = None
+    fivetran_api_secret: str | None = None
+    gitlab_token: str | None = None
+    dynatrace_api_url: str | None = None
+    dynatrace_api_token: str | None = None
+    mongo_uri: str | None = None
+
+
 @app.post("/api/set-key")
 async def set_key(req: KeySetRequest):
     """Allows judges/users to provide their own Gemini API key for this session.
     The key is validated immediately by calling the models list endpoint."""
-    import backend.main as _self
     test_url = f"{GEMINI_API_BASE}/models?key={req.gemini_api_key}"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(test_url)
     if resp.status_code == 200:
-        # Store in process memory for this session (resets on restart)
-        _self.GEMINI_API_KEY = req.gemini_api_key
+        DYNAMIC_CONFIG["GEMINI_API_KEY"] = req.gemini_api_key
         return {"ok": True, "message": "API key validated and active for this session."}
     else:
         return {"ok": False, "message": f"Key rejected by Google: {resp.status_code}"}
 
 
+@app.post("/api/set-keys")
+async def set_keys(req: ApiKeysRequest):
+    """Accepts judge-supplied API keys and partner configuration for the active session."""
+    mapping = {
+        "gemini_api_key": "GEMINI_API_KEY",
+        "elastic_cloud_id": "ELASTIC_CLOUD_ID",
+        "elastic_api_key": "ELASTIC_API_KEY",
+        "arize_api_key": "ARIZE_API_KEY",
+        "arize_space_id": "ARIZE_SPACE_ID",
+        "fivetran_api_key": "FIVETRAN_API_KEY",
+        "fivetran_api_secret": "FIVETRAN_API_SECRET",
+        "gitlab_token": "GITLAB_TOKEN",
+        "dynatrace_api_url": "DYNATRACE_API_URL",
+        "dynatrace_api_token": "DYNATRACE_API_TOKEN",
+        "mongo_uri": "MONGO_URI",
+    }
+
+    supplied = {field: getattr(req, field) for field in mapping.keys() if getattr(req, field) is not None}
+    if not supplied:
+        return {"ok": False, "message": "No API keys were provided."}
+
+    if supplied.get("gemini_api_key"):
+        test_url = f"{GEMINI_API_BASE}/models?key={supplied['gemini_api_key']}"
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(test_url)
+        if resp.status_code != 200:
+            return {"ok": False, "message": f"Gemini key rejected by Google: {resp.status_code}"}
+
+    for field, env_name in mapping.items():
+        value = supplied.get(field)
+        if value:
+            DYNAMIC_CONFIG[env_name] = value
+
+    return {"ok": True, "message": "API keys and partner configuration activated for this session.", "configured": list(DYNAMIC_CONFIG.keys())}
+
+
 @app.get("/health")
 async def health() -> dict[str, Any]:
     partners = {
-        "mongodb": {"configured": bool(os.getenv("MONGO_URI")), "role": "Mission Vault"},
+        "mongodb": {"configured": is_configured("MONGO_URI"), "role": "Mission Vault"},
         "gitlab": {
-            "configured": bool(os.getenv("GITLAB_TOKEN") or os.getenv("DASH_MCP_GITLAB_HTTP_URL")),
+            "configured": bool(resolve_config("GITLAB_TOKEN") or os.getenv("DASH_MCP_GITLAB_HTTP_URL")),
             "role": "Mission script versioning",
         },
         "elastic": {
-            "configured": bool(os.getenv("ELASTIC_CLOUD_ID") and os.getenv("ELASTIC_API_KEY")),
+            "configured": is_configured("ELASTIC_CLOUD_ID", "ELASTIC_API_KEY"),
             "role": "Action Search",
         },
         "arize": {
-            "configured": bool(os.getenv("ARIZE_API_KEY") and os.getenv("ARIZE_SPACE_ID")),
+            "configured": is_configured("ARIZE_API_KEY", "ARIZE_SPACE_ID"),
             "role": "Reasoning observability",
         },
         "fivetran": {
-            "configured": bool(os.getenv("FIVETRAN_API_KEY") and os.getenv("FIVETRAN_API_SECRET")),
+            "configured": is_configured("FIVETRAN_API_KEY", "FIVETRAN_API_SECRET"),
             "role": "Mission event pipeline",
         },
         "dynatrace": {
-            "configured": bool(os.getenv("DYNATRACE_API_URL") and os.getenv("DYNATRACE_API_TOKEN")),
+            "configured": is_configured("DYNATRACE_API_URL", "DYNATRACE_API_TOKEN"),
             "role": "Runtime telemetry",
         },
     }
@@ -321,7 +369,7 @@ async def health() -> dict[str, Any]:
         "status": "ok",
         "service": "dash-agent",
         "model": GEMINI_MODEL,
-        "gemini_configured": bool(GEMINI_API_KEY),
+        "gemini_configured": bool(resolve_config("GEMINI_API_KEY")),
         "mcp_mode": "dry-run" if not any(p["configured"] for p in partners.values()) else "live",
         "partners": partners,
     }
@@ -354,7 +402,7 @@ async def health_partners() -> dict[str, Any]:
 
     start = time.time()
     try:
-        configured = bool(os.getenv("ARIZE_API_KEY") and os.getenv("ARIZE_SPACE_ID"))
+        configured = is_configured("ARIZE_API_KEY", "ARIZE_SPACE_ID")
         if configured:
             results["arize"] = {"status": "up", "latency_ms": int((time.time() - start) * 1000) + 34, "role": "Reasoning observability"}
         else:
@@ -363,7 +411,7 @@ async def health_partners() -> dict[str, Any]:
         results["arize"] = {"status": "up", "latency_ms": int((time.time() - start) * 1000), "role": "Reasoning observability"}
 
     start = time.time()
-    token = os.getenv("GITLAB_TOKEN")
+    token = resolve_config("GITLAB_TOKEN")
     if token:
         try:
             async with httpx.AsyncClient() as client:
@@ -374,8 +422,8 @@ async def health_partners() -> dict[str, Any]:
     else:
         results["gitlab"] = {"status": "dry-run", "latency_ms": 0, "role": "Mission script versioning"}
 
-    fivetran_ok = bool(os.getenv("FIVETRAN_API_KEY") and os.getenv("FIVETRAN_API_SECRET"))
-    dynatrace_ok = bool(os.getenv("DYNATRACE_API_URL") and os.getenv("DYNATRACE_API_TOKEN"))
+    fivetran_ok = is_configured("FIVETRAN_API_KEY", "FIVETRAN_API_SECRET")
+    dynatrace_ok = is_configured("DYNATRACE_API_URL", "DYNATRACE_API_TOKEN")
     results["fivetran"] = {"status": "up" if fivetran_ok else "dry-run", "latency_ms": 42 if fivetran_ok else 0, "role": "Mission event pipeline"}
     results["dynatrace"] = {"status": "up" if dynatrace_ok else "dry-run", "latency_ms": 38 if dynatrace_ok else 0, "role": "Runtime telemetry"}
 
@@ -383,7 +431,7 @@ async def health_partners() -> dict[str, Any]:
 
 @app.post("/missions/gitlab-sync")
 async def gitlab_sync(req: dict) -> dict[str, Any]:
-    token = os.getenv("GITLAB_TOKEN") or req.get("token")
+    token = resolve_config("GITLAB_TOKEN") or req.get("token")
     if not token:
         return {"ok": True, "mode": "dry-run", "message": "GitLab Sync dry-run (No token provided)"}
     try:

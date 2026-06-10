@@ -6,14 +6,16 @@ try:
 except ImportError:
     AsyncElasticsearch = None
 
+
 class ElasticSearch:
     """
     Dash-1: Elastic Action Search
     Powers the millisecond retrieval of previously solved DOM structures.
     """
     def __init__(self):
-        self.cloud_id = os.getenv("ELASTIC_CLOUD_ID")
-        self.api_key = os.getenv("ELASTIC_API_KEY")
+        from backend.config import resolve_config
+        self.cloud_id = resolve_config("ELASTIC_CLOUD_ID") or os.getenv("ELASTIC_CLOUD_ID")
+        self.api_key = resolve_config("ELASTIC_API_KEY") or os.getenv("ELASTIC_API_KEY")
         if self.cloud_id and self.api_key and AsyncElasticsearch:
             self.client = AsyncElasticsearch(
                 cloud_id=self.cloud_id,

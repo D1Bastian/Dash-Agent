@@ -2,14 +2,16 @@ import os
 import logging
 import httpx
 
+
 class ArizeMonitor:
     """
     Dash-1: Arize Reasoning Observability
     Monitors the Gemini reasoning traces and provides guardrail verification.
     """
     def __init__(self):
-        self.api_key = os.getenv("ARIZE_API_KEY")
-        self.space_id = os.getenv("ARIZE_SPACE_ID")
+        from backend.config import resolve_config
+        self.api_key = resolve_config("ARIZE_API_KEY") or os.getenv("ARIZE_API_KEY")
+        self.space_id = resolve_config("ARIZE_SPACE_ID") or os.getenv("ARIZE_SPACE_ID")
         self.endpoint = "https://api.arize.com/v1/log"
         if not self.api_key or not self.space_id:
             logging.warning("ARIZE_API_KEY or ARIZE_SPACE_ID not set, ArizeMonitor running in dry-run mode.")

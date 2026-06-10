@@ -8,8 +8,9 @@ class DynatraceObserve:
     """Dash runtime telemetry adapter with a safe dry-run default."""
 
     def __init__(self):
-        self.api_url = (os.getenv("DYNATRACE_API_URL") or "").rstrip("/")
-        self.api_token = os.getenv("DYNATRACE_API_TOKEN", "")
+        from backend.config import resolve_config
+        self.api_url = (resolve_config("DYNATRACE_API_URL") or os.getenv("DYNATRACE_API_URL") or "").rstrip("/")
+        self.api_token = resolve_config("DYNATRACE_API_TOKEN") or os.getenv("DYNATRACE_API_TOKEN", "")
         if not self.api_url or not self.api_token:
             logging.warning("DYNATRACE_API_URL or DYNATRACE_API_TOKEN not set, DynatraceObserve running in dry-run mode.")
 

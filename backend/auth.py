@@ -11,6 +11,7 @@ Flow:
 
 import os
 import httpx
+from backend.config import resolve_config
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
@@ -33,7 +34,6 @@ SCOPES = " ".join([
 ])
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 
@@ -208,15 +208,17 @@ async def gemini_generate(body: GeminiRequest, request: Request):
 
     if access_token and access_token != "demo-token":
         headers["Authorization"] = f"Bearer {access_token}"
-    elif GEMINI_API_KEY:
-        url = f"{url}?key={GEMINI_API_KEY}"
     else:
-        # Demo mode fallback if NO keys are available
-        return {
-            "status": "demo",
-            "text": f"[Demo mode] Gemini would respond to: {body.prompt[:80]}...",
-            "mission": body.mission,
-        }
+        gemini_key = resolve_config("GEMINI_API_KEY")
+        if gemini_key:
+            url = f"{url}?key={gemini_key}"
+        else:
+            # Demo mode fallback if NO keys are available
+            return {
+                "status": "demo",
+                "text": f"[Demo mode] Gemini would respond to: {body.prompt[:80]}...",
+                "mission": body.mission,
+            }
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(url, json=payload, headers=headers)
