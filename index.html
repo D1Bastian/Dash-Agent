@@ -39,7 +39,7 @@
       
       <div class="login-key-entry">
         <input id="login-gemini-key-input" type="password" placeholder="Optional: paste your Gemini API key here" autocomplete="off">
-        <button type="button" class="btn subtle-btn login-btn" onclick="window.saveGeminiKey('login-gemini-key-input','login-gemini-key-status')">
+        <button id="login-gemini-key-btn" type="button" class="btn subtle-btn login-btn" onclick="window.saveGeminiKey('login-gemini-key-input','login-gemini-key-status')">
           <i class="fa-solid fa-key"></i> Validate & Use
         </button>
       </div>
@@ -51,7 +51,7 @@
       <button type="button" class="btn subtle-btn login-btn" id="create-account-toggle" style="margin-bottom: 0.75rem; width: 100%;" onclick="window.toggleCreateAccountForm()">
         <i class="fa-solid fa-user-plus"></i> Create a new account
       </button>
-      <button type="button" class="btn subtle-btn login-btn" style="margin-bottom: 0.75rem; width: 100%;" onclick="window.location.href='?auth=demo'">
+      <button id="demo-login-btn" type="button" class="btn subtle-btn login-btn" style="margin-bottom: 0.75rem; width: 100%;" onclick="window.location.href='?auth=demo'">
         <i class="fa-solid fa-user-secret"></i> Continue with Demo
       </button>
 
@@ -77,10 +77,10 @@
       </div>
       
       <div class="provider-icons" style="display: flex; gap: 0.8rem; justify-content: center; margin-bottom: 1.5rem;">
-        <button type="button" class="icon-btn" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('github')" title="GitHub"><i class="fa-brands fa-github"></i></button>
-        <button type="button" class="icon-btn" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('microsoft')" title="Microsoft"><i class="fa-brands fa-windows"></i></button>
-        <button type="button" class="icon-btn" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('anthropic')" title="Anthropic"><i class="fa-solid fa-brain"></i></button>
-        <button type="button" class="icon-btn" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('openai')" title="OpenAI"><i class="fa-solid fa-robot"></i></button>
+        <button type="button" class="icon-btn" data-provider="github" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('github')" title="GitHub"><i class="fa-brands fa-github"></i></button>
+        <button type="button" class="icon-btn" data-provider="microsoft" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('microsoft')" title="Microsoft"><i class="fa-brands fa-windows"></i></button>
+        <button type="button" class="icon-btn" data-provider="anthropic" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('anthropic')" title="Anthropic"><i class="fa-solid fa-brain"></i></button>
+        <button type="button" class="icon-btn" data-provider="openai" style="width: 46px; height: 46px; font-size: 1.2rem;" onclick="window.appConnectProvider('openai')" title="OpenAI"><i class="fa-solid fa-robot"></i></button>
       </div>
 
       <p class="login-note">Dash requires a verified identity to act on your behalf.</p>

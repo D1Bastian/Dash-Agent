@@ -71,28 +71,30 @@ Find → Read → Prepare → Check → Save
 
 ## For Judges — Quick Start
 
-You don't need to clone the repo or run this locally to test the AI. You can test the full Gemini reasoning engine right on the live site using your own key.
+You don't need to clone the repo to review the app. The live site supports judge entry via Demo Login and your own Gemini key.
 
-**Path A: 30 seconds via Demo Login**
+**Path A: Live judge review (recommended)**
 1. Visit the live URL: [https://dash-agent.onrender.com](https://dash-agent.onrender.com)
-2. Click **Demo Login** on the login screen.
-3. Paste your own **Gemini API Key** into the login screen or the Settings page.
-4. Paste any live partner keys you want to test into the Settings page and click **Save Partner Keys**.
-5. If you do not have a key, the app will fall back to the server-side backend key for the session.
+2. On the login card, click **Continue with Demo**.
+3. Optionally paste your own **Gemini API Key** into the top login field and click **Validate & Use**.
+4. After login, open **Settings** to confirm your key is stored and to paste any partner keys you want to test.
+5. Use the **Connect with Google** button or **Create a new account** button to exercise the identity flows.
+6. The small provider icons under “Or connect LLM accounts” let judges see the provider staging UI for GitHub, Microsoft, Anthropic, and OpenAI.
+7. If you do not have a Gemini key, the app falls back to the server-side backend key for the current session.
 
 **Path B: Full test locally**
 1. Clone: `git clone https://github.com/D1Bastian/Dash-Agent.git`
 2. Configure: `cp .env.example .env.local` and add your `GEMINI_API_KEY` or any partner keys you have.
-3. Run: `pip install -r requirements.txt && uvicorn backend.main:app`
+3. Run: `pip install -r requirements.txt && uvicorn backend.main:app --reload`
 
 ## Judge-first features
-- ✅ Real Gemini Key (Settings API): the `/api/set-key` endpoint is live in `backend/main.py`.
-- ✅ Frontend key validation: `saveGeminiKey` in `app.js` validates and stores the judge's key for the session.
-- ✅ X-Gemini-Key header: the app injects `X-Gemini-Key` into backend requests and `backend/main.py` extracts it with `request.headers.get("X-Gemini-Key", "")`.
-- ✅ Real Fivetran API: `superpowers/fivetran_pipeline.py` includes `list_connectors` hitting `https://api.fivetran.com/v1/connectors` when Fivetran keys are configured.
-- ✅ Judge path options: login screen now offers `Demo Login`, `Create account`, and optional personal Gemini key input.
-- ✅ Google OAuth support: `/auth/google/url` and `/auth/google/callback` are implemented; other OAuth provider buttons route to staged/demo fallback unless the corresponding backend configuration is provided.
-- ✅ Partner integrations are live when backend env vars are configured; otherwise they fall back to dry-run mode without crashing.
+- ✅ Live judge entry: the login overlay exposes **Demo Login**, **Create a new account**, **Connect with Google**, and personal Gemini key entry.
+- ✅ Real Gemini Key support: `saveGeminiKey` in `app.js` validates and stores the judge's key for the session.
+- ✅ App stores keys for the session and injects `X-Gemini-Key` into backend requests.
+- ✅ Connect LLM accounts section: GitHub, Microsoft, Anthropic, and OpenAI provider buttons are visible on the login screen.
+- ✅ Google OAuth support: `/auth/google/url` and `/auth/google/callback` are implemented; non-configured OAuth providers gracefully stage/demo fallback flows.
+- ✅ Partner integration fallbacks: partner services are live when env vars are configured, otherwise Dry Run / fallback state prevents crashes.
+- ✅ Judge-friendly health checks: `/health` and `/health/partners` report current integration state.
 
 ---
 

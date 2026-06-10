@@ -652,10 +652,10 @@
     setWorkspace("Superpowers", "Partner Integrations", `
       <button class="subtle-btn" type="button" onclick="renderWorkspace('partners')"><i class="fa-solid fa-rotate"></i> Refresh Pings</button>
     `);
-    els.workspaceContent.innerHTML = \`<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Pinging partners...</p></div>\`;
+    els.workspaceContent.innerHTML = `<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Pinging partners...</p></div>`;
     
     try {
-      const res = await fetch(\`\${API_BASE}/health/partners\`);
+      const res = await fetch(`${API_BASE}/health/partners`);
       const data = await res.json();
       
       const cards = Object.entries(data).map(([name, info]) => {
@@ -663,19 +663,19 @@
         const isDryRun = info.status === "dry-run";
         const statusClass = isUp ? "ok" : isDryRun ? "warn" : "down";
         const statusText = isUp ? "Connected" : isDryRun ? "Dry-run mode" : "Error";
-        const msText = info.latency_ms ? \`\${info.latency_ms}ms\` : "--";
+        const msText = info.latency_ms ? `${info.latency_ms}ms` : "--";
         
-        return \`
+        return `
           <div class="detail-card">
-            <span class="status-tag \${statusClass}">\${statusText}</span>
-            <h3 style="text-transform: capitalize;">\${name}</h3>
-            <p>\${escapeHTML(info.role)}</p>
-            <footer><span>Latency</span><strong>\${msText}</strong></footer>
+            <span class="status-tag ${statusClass}">${statusText}</span>
+            <h3 style="text-transform: capitalize;">${name}</h3>
+            <p>${escapeHTML(info.role)}</p>
+            <footer><span>Latency</span><strong>${msText}</strong></footer>
           </div>
-        \`;
+        `;
       }).join("");
       
-      els.workspaceContent.innerHTML = \`<div class="grid-3">\${cards}</div>\`;
+      els.workspaceContent.innerHTML = `<div class="grid-3">${cards}</div>`;
       
       const dot = document.getElementById("nav-health-dot");
       if (dot) {
@@ -683,7 +683,7 @@
         dot.style.backgroundColor = allUp ? "var(--color-success)" : "var(--color-warning)";
       }
     } catch (err) {
-      els.workspaceContent.innerHTML = \`<div class="empty-state"><h3>Ping Failed</h3><p>\${escapeHTML(err.message)}</p></div>\`;
+      els.workspaceContent.innerHTML = `<div class="empty-state"><h3>Ping Failed</h3><p>${escapeHTML(err.message)}</p></div>`;
     }
   }
 
@@ -1226,6 +1226,18 @@
     renderWorkspace("settings");
   }
 
+  function attachLoginHandlers() {
+    document.getElementById("google-connect-btn")?.addEventListener("click", () => connectSource("google"));
+    document.getElementById("create-account-toggle")?.addEventListener("click", toggleCreateAccountForm);
+    document.getElementById("create-account-submit")?.addEventListener("click", createLocalAccount);
+    document.getElementById("demo-login-btn")?.addEventListener("click", () => { window.location.href = "?auth=demo"; });
+    document.getElementById("login-gemini-key-btn")?.addEventListener("click", () => window.saveGeminiKey('login-gemini-key-input','login-gemini-key-status'));
+    document.querySelectorAll(".provider-icons button[data-provider]").forEach((button) => {
+      const provider = button.dataset.provider;
+      if (provider) button.addEventListener("click", () => appConnectProvider(provider));
+    });
+  }
+
   function bindEvents() {
     document.addEventListener("click", async (event) => {
       const target = event.target.closest("button");
@@ -1374,6 +1386,8 @@
   function init() {
     const appShell = document.querySelector(".app-shell");
     const loginOverlay = document.getElementById("login-overlay");
+
+    attachLoginHandlers();
 
     // Determine if user is authenticated:
     // - They have a real user id (from OAuth or demo login)
