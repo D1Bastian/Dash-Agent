@@ -186,7 +186,7 @@
   const defaultState = {
     view: "agents",
     user: {
-      id: "demo-user",
+      id: "demo-authorized",
       name: "Sarah K.",
       email: "sarah@example.com",
       country: "United States",
@@ -1260,11 +1260,14 @@
   function init() {
     const appShell = document.querySelector(".app-shell");
     const loginOverlay = document.getElementById("login-overlay");
-    
-    if (state.user.id === "demo-user" || !state.user.id) {
-      loginOverlay.hidden = false;
-      appShell.hidden = true;
-    } else {
+
+    // Determine if user is authenticated:
+    // - They have a real user id (from OAuth or demo login)
+    // - OR they came in via ?auth=demo this very load (already processed above)
+    const isAuthed = state.user && state.user.id &&
+      state.user.id !== "require-login";
+
+    if (isAuthed) {
       loginOverlay.hidden = true;
       appShell.hidden = false;
       renderSuggestions();
@@ -1272,8 +1275,31 @@
       renderCounters();
       renderWorkspace(state.view);
       loadArchitecture();
+    } else {
+      loginOverlay.hidden = false;
+      appShell.hidden = true;
     }
   }
 
   init();
 })();
+
+// Global helper for login screen provider buttons (called from inline onclick)
+window.showProviderToast = function(provider) {
+  const toast = document.createElement("div");
+  toast.style.cssText = [
+    "position:fixed","bottom:32px","left:50%","transform:translateX(-50%)",
+    "background:rgba(15,20,35,0.95)","color:#e8f0fe",
+    "border:1px solid rgba(255,255,255,0.15)","border-radius:12px",
+    "padding:14px 24px","font-size:0.95rem","z-index:99999",
+    "backdrop-filter:blur(12px)","box-shadow:0 8px 32px rgba(0,0,0,0.5)",
+    "pointer-events:none","opacity:0","transition:opacity 0.3s ease"
+  ].join(";");
+  toast.textContent = `${provider} connect coming soon — use Demo Login to explore Dash now.`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = "1"; });
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+};
