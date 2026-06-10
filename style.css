@@ -328,11 +328,44 @@ body.time-night .nav-link {
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--muted);
+  color: #ecfbfc;
   padding: 8px 12px;
   font-size: 0.88rem;
   font-weight: 600;
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.account-creation-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 1rem;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.account-creation-panel label {
+  display: grid;
+  gap: 8px;
+  color: #e8f0fe;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.account-creation-panel input {
+  width: 100%;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8f0fe;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
+.account-creation-panel input::placeholder {
+  color: rgba(232, 240, 254, 0.55);
 }
 
 .nav-link:nth-child(1) {
@@ -1532,5 +1565,25 @@ p {
 
 .login-overlay .icon-btn:hover {
   background: rgba(255,255,255,0.14);
+}
+
+.login-key-entry {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 0.75rem;
+}
+
+.login-key-entry input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8f0fe;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
+.login-key-entry button {
+  justify-self: stretch;
 }
 

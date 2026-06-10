@@ -186,9 +186,9 @@
   const defaultState = {
     view: "agents",
     user: {
-      id: "demo-authorized",
-      name: "Sarah K.",
-      email: "sarah@example.com",
+      id: "require-login",
+      name: "",
+      email: "",
       country: "United States",
       currency: "USD",
       homeAirport: "SFO",
@@ -1091,18 +1091,68 @@
   }
 
   async function connectSource(source) {
-    if (source === "google") {
-      window.location.href = `${API_BASE}/auth/google/url`;
+    const oauthProviders = ["google", "github", "microsoft", "anthropic", "openai", "apple"];
+    if (oauthProviders.includes(source)) {
+      window.location.href = `${API_BASE}/auth/${source}/url`;
       return;
     }
     notify("Connection staged", `${source} will use an approved OAuth, vault reference, or browser handoff flow.`, true, "marketplace");
   }
 
+  function appConnectProvider(source) {
+    connectSource(source);
+  }
+
+  function toggleCreateAccountForm() {
+    const panel = document.getElementById("account-creation-panel");
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+  }
+
+  async function createLocalAccount() {
+    const nameInput = document.getElementById("account-name");
+    const emailInput = document.getElementById("account-email");
+    const name = nameInput?.value?.trim() || "";
+    const email = emailInput?.value?.trim() || "";
+
+    if (!name || !email) {
+      notify("Complete account details", "Please enter both your name and email to create a local account.", true, "settings");
+      return;
+    }
+
+    state.user.id = state.user.id && state.user.id !== "require-login"
+      ? state.user.id
+      : `local-${Date.now()}`;
+    state.user.name = name;
+    state.user.email = email;
+    persist();
+
+    try {
+      await registerUser();
+      notify("Account created", "Your local account is ready. Google connect is available next.", false, "settings");
+    } catch (error) {
+      notify("Local account saved", "Account created locally, but backend registration could not complete.", true, "settings");
+    }
+
+    const loginOverlay = document.getElementById("login-overlay");
+    const appShell = document.querySelector(".app-shell");
+    if (loginOverlay && appShell) {
+      loginOverlay.hidden = true;
+      appShell.hidden = false;
+      startApp();
+    }
+  }
+
   async function registerUser() {
+    const userId = state.user.id && state.user.id !== "require-login"
+      ? state.user.id
+      : `local-${Date.now()}`;
+    state.user.id = userId;
+    persist();
     const result = await requestJSON("/users/register", {
       method: "POST",
       body: JSON.stringify({
-        user_id: state.user.id,
+        user_id: userId,
         display_name: state.user.name,
         primary_email: state.user.email,
         auth_provider: "local-demo",
@@ -1114,6 +1164,19 @@
     });
     notify("User registered", result.next_action || "Mission Vault profile is ready.", true, "vault");
   }
+
+  function startApp() {
+    renderSuggestions();
+    bindEvents();
+    renderCounters();
+    renderWorkspace(state.view);
+    loadArchitecture();
+  }
+
+  window.toggleCreateAccountForm = toggleCreateAccountForm;
+  window.createLocalAccount = createLocalAccount;
+  window.appConnectGoogle = () => connectSource("google");
+  window.appConnectProvider = appConnectProvider;
 
   function saveSettings() {
     document.querySelectorAll("[data-setting]").forEach((input) => {
@@ -1282,11 +1345,7 @@
     if (isAuthed) {
       loginOverlay.hidden = true;
       appShell.hidden = false;
-      renderSuggestions();
-      bindEvents();
-      renderCounters();
-      renderWorkspace(state.view);
-      loadArchitecture();
+      startApp();
     } else {
       loginOverlay.hidden = false;
       appShell.hidden = true;
@@ -1316,11 +1375,17 @@ window.showProviderToast = function(provider) {
   }, 3200);
 };
 
-window.saveGeminiKey = async function() {
-  const key = document.getElementById('gemini-key-input')?.value?.trim();
-  const status = document.getElementById('gemini-key-status');
-  if (!key) { if(status) status.textContent = 'Please enter a key.'; return; }
-  if(status) status.textContent = 'Validating...';
+window.saveGeminiKey = async function(inputId = 'gemini-key-input', statusId = 'gemini-key-status') {
+  const key = document.getElementById(inputId)?.value?.trim();
+  const status = document.getElementById(statusId);
+  if (!key) {
+    if (status) status.textContent = 'Please enter a key or continue with demo.';
+    return;
+  }
+  if (status) {
+    status.textContent = 'Validating...';
+    status.style.color = '';
+  }
   try {
     const res = await fetch(`${window.location.origin}/api/set-key`, {
       method: 'POST',
@@ -1330,11 +1395,20 @@ window.saveGeminiKey = async function() {
     const data = await res.json();
     if (data.ok) {
       localStorage.setItem('dash-gemini-key', key);
-      if(status) { status.textContent = '\u2705 ' + data.message; status.style.color = 'var(--ok)'; }
+      if (status) {
+        status.textContent = '✅ ' + data.message;
+        status.style.color = 'var(--ok)';
+      }
     } else {
-      if(status) { status.textContent = '\u274C ' + data.message; status.style.color = 'var(--danger)'; }
+      if (status) {
+        status.textContent = '❌ ' + data.message;
+        status.style.color = 'var(--danger)';
+      }
     }
-  } catch(e) {
-    if(status) { status.textContent = '\u274C Network error: ' + e.message; status.style.color = 'var(--danger)'; }
+  } catch (e) {
+    if (status) {
+      status.textContent = '❌ Network error: ' + e.message;
+      status.style.color = 'var(--danger)';
+    }
   }
 };
