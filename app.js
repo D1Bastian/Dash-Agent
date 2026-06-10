@@ -1216,6 +1216,7 @@
   window.createLocalAccount = createLocalAccount;
   window.appConnectGoogle = () => connectSource("google");
   window.appConnectProvider = appConnectProvider;
+  window.signOut = signOut;
 
   function saveSettings() {
     document.querySelectorAll("[data-setting]").forEach((input) => {
