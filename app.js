@@ -7,8 +7,16 @@
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
   const searchParams = new URLSearchParams(window.location.search);
-  
-// Generic authentication handling
+
+  if (searchParams.get("logout") === "1" || searchParams.get("reset") === "1") {
+    localStorage.removeItem("dash-token");
+    localStorage.removeItem("dash-state-v1");
+    localStorage.removeItem("dash-partner-config");
+    localStorage.removeItem("dash-gemini-key");
+    window.history.replaceState(null, null, window.location.pathname);
+  }
+
+  // Generic authentication handling
   const provider = params.get("provider") || "google";
   const token = params.get("access_token");
   const user_id = params.get("user_id");
