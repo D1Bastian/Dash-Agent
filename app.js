@@ -1355,12 +1355,36 @@
       "save-settings": saveSettings,
       "register-user": registerUser,
       "connect-google": () => connectSource("google"),
+      "sign-out": signOut,
       "test-gitlab": testGitlab,
       "invite-member": () => notify("Invite staged", "Team invitations need an email service before sending.", true, "team"),
       "social-source": () => notify("Social source staged", "Dash will ask for consent before reading any social context.", true, "social"),
       "simulate-payment-gate": () => openCheckpoint("shopping", { status: "demo" }),
     };
     if (actions[action]) await actions[action]();
+  }
+
+  function signOut() {
+    localStorage.removeItem("dash-token");
+    localStorage.removeItem("dash-state-v1");
+    state.user = {
+      id: "require-login",
+      name: "",
+      email: "",
+      country: "United States",
+      currency: "USD",
+      homeAirport: "SFO",
+    };
+    state.view = "agents";
+    state.activeMission = null;
+    state.architecture = null;
+    persist();
+    const loginOverlay = document.getElementById("login-overlay");
+    const appShell = document.querySelector(".app-shell");
+    if (loginOverlay && appShell) {
+      loginOverlay.hidden = false;
+      appShell.hidden = true;
+    }
   }
 
   function openAgentDetail(agent) {

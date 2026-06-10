@@ -441,7 +441,7 @@ body.time-night .nav-link {
 .list-row:hover,
 .tab-btn:hover {
   border-color: var(--soft);
-  background: #f8fffe;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .count-pill {
@@ -544,12 +544,12 @@ body.time-night .nav-link {
 .command-panel,
 .workspace,
 .mission-panel {
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--surface);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 18px 50px rgba(15, 89, 101, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 18px 50px rgba(15, 89, 101, 0.06), inset 0 1px 2px rgba(255, 255, 255, 0.08);
   animation: contentFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -623,10 +623,10 @@ p {
   gap: 12px;
   margin: 28px 0 18px;
   padding: 8px 8px 8px 16px;
-  border: 1px solid var(--soft);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 12px 38px rgba(0, 140, 163, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 38px rgba(0, 140, 163, 0.06);
 }
 
 .composer i {
@@ -706,9 +706,9 @@ p {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   min-height: 184px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(232, 247, 246, 0.45));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
   backdrop-filter: blur(12px);
   padding: 16px;
   text-align: left;
@@ -716,10 +716,10 @@ p {
 }
 
 .suggestion-card:hover {
-  border-color: rgba(255, 255, 255, 0.9);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(232, 247, 246, 0.65));
-  box-shadow: 0 22px 55px rgba(0, 140, 163, 0.16);
-  transform: translateY(-4px) scale(1.015);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 22px 55px rgba(0, 140, 163, 0.08);
+  transform: translateY(-4px) scale(1.01);
 }
 
 .card-topline {
