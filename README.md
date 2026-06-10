@@ -9,7 +9,7 @@
 [![GitLab](https://img.shields.io/badge/Partner-GitLab-orange)](https://gitlab.com)
 [![Arize](https://img.shields.io/badge/Partner-Arize-purple)](https://arize.com)
 
-Dash is built to run against real partner services. MongoDB provides the mission vault, Elastic caches solved UI actions, Arize monitors reasoning and guardrails, Fivetran streams mission analytics, Dynatrace captures runtime telemetry, and GitLab is available as optional mission-script versioning when configured. This is the actual live toolbox behind the webapp.
+## Dash is built to run against real partner services. MongoDB provides the mission vault, Elastic caches solved UI actions, Arize monitors reasoning and guardrails, Fivetran streams mission analytics, Dynatrace captures runtime telemetry, and GitLab is available as optional mission-script versioning when configured. This is the actual live toolbox behind the webapp.
 
 ---
 
