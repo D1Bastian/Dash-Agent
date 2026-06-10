@@ -100,18 +100,18 @@ You don't need to clone the repo to review the app. The live site supports judge
 
 ## Partner Superpowers
 
-Dash is built on six partner integrations that turn a smart chat interface into a capable agent. 
+Dash is built on six partner integrations that turn a smart chat interface into a capable agent. The Gemini master agent treats these services as active toolbox capabilities, using them for action recall, observability, analytics, telemetry, memory, and optional script versioning.
 
 | Partner | Superpower | What It Enables | Status |
 |---------|-----------|-----------------|--------|
 | **MongoDB** | Mission Vault | Durable memory of user preferences, consent, context sources, and mission state. | 🟢 Connected |
-| **Elastic** | Action Search | Caches previously solved DOM/form mappings to accelerate form-filling. | 🟡 Configurable |
-| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. | 🟡 Configurable |
-| **Arize** | Observability | Traces Gemini reasoning chains and monitors safety guardrails. | 🟡 Configurable |
-| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results). | 🟡 Configurable |
-| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance. | 🟡 Configurable |
+| **Elastic** | Action Search | Caches previously solved DOM/form mappings to accelerate form-filling. | 🟢 Active when configured |
+| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. | 🟡 Optional / token required |
+| **Arize** | Observability | Traces Gemini reasoning chains and monitors safety guardrails. | 🟢 Active when configured |
+| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results). | 🟢 Active when configured |
+| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance. | 🟢 Active when configured |
 
-*Note to Judges: The live demo has MongoDB fully connected as our primary database. Some of our test API keys for the other partner services have expired. However, you have the option to test them yourself! To test the full integration suite with Fivetran, Arize, Elastic, and GitLab, simply clone the repository and paste your own API keys into the `.env` file. If keys are not provided, the integrations gracefully fallback to dry-run mode so the agent never crashes.*
+*Note to Judges: The live demo uses MongoDB as the mission vault and is designed to treat Elastic, Arize, Fivetran, and Dynatrace as real toolbox extensions when those partners are configured. GitLab remains optional and only runs if `GITLAB_TOKEN` or a GitLab MCP URL is provided. If partner keys are not supplied, the integrations fall back to dry-run mode so the agent stays stable.*
 
 ---
 
@@ -132,6 +132,10 @@ User prompt (chat)
   → Elastic — cache solved actions
   → MongoDB — save mission state & non-secret session refs
   → Arize — log reasoning trace
+  → Fivetran — stream mission analytics
+  → Dynatrace — emit runtime telemetry
+  → Fivetran — stream mission analytics
+  → Dynatrace — emit runtime telemetry
 ```
 
 ## Health Check

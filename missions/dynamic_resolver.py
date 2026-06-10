@@ -2,10 +2,16 @@ import asyncio
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
+
+from superpowers.arize_monitor import ArizeMonitor
+from superpowers.dynatrace_observe import DynatraceObserve
+from superpowers.elastic_search import ElasticSearch
+from superpowers.fivetran_pipeline import FivetranPipeline
 
 from backend.main import GEMINI_MODEL, gemini
 
@@ -130,8 +136,12 @@ async def run_dynamic_resolver_stream(
         yield emit(f"📋 Found **{len(elements)}** visible interactive elements.")
 
         # ── Phase 2: PLAN (Elastic cache → Gemini) ───────────────────────────
-        from superpowers.elastic_search import ElasticSearch
+        mission_id = f"resolver-{profile.username}-{int(time.time())}"
+        arize = ArizeMonitor()
+        dynatrace = DynatraceObserve()
+        fivetran = FivetranPipeline()
         elastic = ElasticSearch()
+
         cached = await elastic.get_solved_actions(url)
 
         if cached:
@@ -149,6 +159,20 @@ async def run_dynamic_resolver_stream(
                 return
             yield emit(f"✅ Gemini mapped **{len(actions)}** actions. Saving to Elastic …")
             await elastic.save_solved_actions(url, actions)
+
+        yield emit("🔐 Verifying mission guardrails with Arize …")
+        guardrail_result = await arize.verify_guardrails({"mission_id": mission_id, "actions": actions})
+        if not guardrail_result.get("ok"):
+            yield emit(f"⚠️ Arize guardrail verification failed: {guardrail_result.get('error')}")
+        else:
+            yield emit("✅ Arize guardrail verification passed.")
+
+        yield emit("📘 Logging mission reasoning trace to Arize …")
+        trace_result = await arize.log_reasoning_trace(mission_id, actions)
+        if not trace_result.get("ok"):
+            yield emit(f"⚠️ Arize trace logging failed: {trace_result.get('error')}")
+        else:
+            yield emit("✅ Arize reasoning trace recorded.")
 
         # ── Phase 3: FORM FILL ───────────────────────────────────────────────
         yield emit("\n**Phase 3 — Form Fill**")
@@ -202,6 +226,7 @@ async def run_dynamic_resolver_stream(
             await vault.store_mission_state(
                 f"resolver-{profile.username}",
                 {
+                    "mission_id": mission_id,
                     "url": url,
                     "username": profile.username,
                     "status": "completed",
@@ -211,6 +236,35 @@ async def run_dynamic_resolver_stream(
             yield emit("💾 Mission state saved to **MongoVault** (no secrets stored).")
         except Exception as e:
             yield emit(f"⚠️  Vault save skipped: {e}")
+
+        yield emit("📊 Streaming mission analytics to Fivetran …")
+        fivetran_result = await fivetran.stream_mission_data(
+            mission_id,
+            {
+                "url": url,
+                "username": profile.username,
+                "final_url": page.url,
+                "completed_at": time.time(),
+            },
+        )
+        if not fivetran_result.get("ok"):
+            yield emit(f"⚠️  Fivetran stream skipped: {fivetran_result.get('error')}")
+        else:
+            yield emit("✅ Mission analytics streamed to Fivetran.")
+
+        yield emit("📡 Emitting runtime telemetry to Dynatrace …")
+        dynatrace_result = await dynatrace.emit_event(
+            {
+                "mission_id": mission_id,
+                "status": "completed",
+                "url": url,
+                "username": profile.username,
+            }
+        )
+        if not dynatrace_result.get("ok"):
+            yield emit(f"⚠️  Dynatrace telemetry skipped: {dynatrace_result.get('error')}")
+        else:
+            yield emit("✅ Runtime telemetry sent to Dynatrace.")
 
         yield emit(f"\n🏁 **Mission complete.** Final URL: `{page.url}`")
         await asyncio.sleep(1)
