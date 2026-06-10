@@ -94,13 +94,13 @@ Dash is built on six partner integrations that turn a smart chat interface into 
 | Partner | Superpower | What It Enables | Status |
 |---------|-----------|-----------------|--------|
 | **MongoDB** | Mission Vault | Durable memory of user preferences, consent, context sources, and mission state. | 🟢 Connected |
-| **Elastic** | Action Search | Caches previously solved DOM/form mappings to accelerate form-filling. | 🟢 Connected |
-| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. | 🟢 Connected |
-| **Arize** | Observability | Traces Gemini reasoning chains and monitors safety guardrails. | 🟢 Connected |
-| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results). | 🟢 Connected |
-| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance. | 🟢 Connected |
+| **Elastic** | Action Search | Caches previously solved DOM/form mappings to accelerate form-filling. | 🟡 Configurable |
+| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. | 🟡 Configurable |
+| **Arize** | Observability | Traces Gemini reasoning chains and monitors safety guardrails. | 🟡 Configurable |
+| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results). | 🟡 Configurable |
+| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance. | 🟡 Configurable |
 
-*Note: For the live demo, MongoDB is fully connected as our primary database. Other partner integrations gracefully fallback to dry-run mode if you do not provide API keys in the `.env` file, meaning the app will never crash and will simulate the partner action.*
+*Note to Judges: The live demo has MongoDB fully connected as our primary database. Some of our test API keys for the other partner services have expired. However, you have the option to test them yourself! To test the full integration suite with Fivetran, Arize, Elastic, and GitLab, simply clone the repository and paste your own API keys into the `.env` file. If keys are not provided, the integrations gracefully fallback to dry-run mode so the agent never crashes.*
 
 ---
 
