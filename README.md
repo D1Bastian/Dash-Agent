@@ -70,22 +70,38 @@ Find → Read → Prepare → Check → Save
 4. **Check** — Pause immediately for CAPTCHA, MFA, email/phone verification, payment, publishing, or irreversible changes
 5. **Save** — Write high-level mission state, preferences, and non-secret session references back to MongoDB
 
+## For Judges — Quick Start
+
+You don't need to clone the repo or run this locally to test the AI. You can test the full Gemini reasoning engine right on the live site using your own key.
+
+**Path A: Full Live Test (Recommended)**
+1. Visit the live URL: [https://dash-agent.onrender.com](https://dash-agent.onrender.com)
+2. Click **Demo Login** on the login screen.
+3. Click the **Settings** tab in the main navigation.
+4. Paste your **Gemini API Key** in the API Keys section and click **Validate & Save**. 
+5. *Dash will validate your key live and activate all AI features for your session without a restart.*
+
+**Path B: Run Locally**
+1. Clone: `git clone https://github.com/D1Bastian/Dash-Agent.git`
+2. Configure: `cp .env.example .env.local` and add your `GEMINI_API_KEY`.
+3. Run: `pip install -r requirements.txt && uvicorn backend.main:app`
+
 ---
 
 ## Partner Superpowers
 
-Dash is built on six partner integrations that turn a smart chat interface into a capable agent:
+Dash is built on six partner integrations that turn a smart chat interface into a capable agent. 
 
-| Partner | Superpower | What It Enables |
-|---------|-----------|-----------------|
-| **MongoDB** | Mission Vault | Durable memory of user preferences, consent, context sources, and mission state. Dash remembers who you are so it never asks the same question twice |
-| **Elastic** | Action Search | Caches previously solved DOM/form mappings. If Dash has filled a form on a site before, it reuses the solution in milliseconds instead of re-querying Gemini |
-| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. Can provision repositories on your behalf via the GitLab API |
-| **Arize** | Observability | Traces Gemini reasoning chains, monitors form-fill success rates, and surfaces agent health data |
-| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results) to your data warehouse |
-| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance in real time |
+| Partner | Superpower | What It Enables | Status |
+|---------|-----------|-----------------|--------|
+| **MongoDB** | Mission Vault | Durable memory of user preferences, consent, context sources, and mission state. | 🟢 Connected |
+| **Elastic** | Action Search | Caches previously solved DOM/form mappings to accelerate form-filling. | 🟡 Configurable |
+| **GitLab** | Mission Scripts | Versions and syncs mission execution scripts. | 🟡 Configurable |
+| **Arize** | Observability | Traces Gemini reasoning chains and monitors safety guardrails. | 🟡 Configurable |
+| **Fivetran** | Data Pipeline | Streams mission event data (price trends, trip costs, scout results). | 🟡 Configurable |
+| **Dynatrace** | Runtime Telemetry | Monitors backend health and operational performance. | 🟡 Configurable |
 
-When credentials are not configured, every integration degrades gracefully to a dry-run mode — the app never crashes, never lies, and always tells you the real status.
+*Note: For the live demo, MongoDB is fully connected as our primary database. Other partner integrations gracefully fallback to dry-run mode if you do not provide API keys in the `.env` file, meaning the app will never crash and will simulate the partner action.*
 
 ---
 
@@ -107,64 +123,6 @@ User prompt (chat)
   → MongoDB — save mission state & non-secret session refs
   → Arize — log reasoning trace
 ```
-
-### Sub-Agent Roster
-
-- Identity Registrar — creates and hydrates the Mission Vault profile
-- Context Seeder — connects consented social, travel, and preference data sources
-- DOM Deconstructor — maps visible page semantics to a Gemini-readable snapshot
-- Form Operator — types with real keyboard/input/change events
-- Price & Logistics — compares landed costs and delivery timelines
-- GitLab Sync — versions mission scripts and provisions repos
-- Observability — sends traces to Arize
-- Human Checkpoint Monitor — detects CAPTCHA, MFA, verification, payment prompts and halts
-
----
-
-## Safety Design
-
-Dash is designed around human oversight, not around autonomy for its own sake.
-
-- **No raw credentials ever leave the client.** Passwords, tokens, and recovery codes are never sent to Gemini, never logged, and never stored as plaintext.
-- **Five explicit human gates.** Payment, booking, CAPTCHA, MFA, email/phone verification, publishing, and irreversible account changes always stop for approval.
-- **Context by consent.** Social sources use OAuth, public links, user exports, or browser handoff. Dash never asks for raw social media passwords.
-- **Silent logs.** Raw DOM structure, CSS selectors, telemetry, and reasoning traces stay behind the curtain. Users see only high-level mission outcomes.
-
----
-
-## Running Locally
-
-```bash
-# Clone and install
-git clone https://github.com/D1Bastian/Dash-Agent.git
-cd infinite-action-agent
-pip install -r requirements.txt
-playwright install chromium
-
-# Configure
-cp .env.example .env.local
-# Fill in your GEMINI_API_KEY, MONGO_URI, etc.
-
-# Run
-uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-Open `http://127.0.0.1:8000` — use **Demo Login** to explore without OAuth setup.
-
----
-
-## Deployment (Render)
-
-The included [`render.yaml`](render.yaml) defines the full service. After connecting your GitHub repo on [render.com](https://render.com):
-
-1. Set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com)
-2. Set `MONGO_URI` from [MongoDB Atlas](https://cloud.mongodb.com)
-3. Set partner keys for Elastic, Arize, Fivetran, GitLab as desired
-4. Render auto-deploys on every push
-
-See [`.env.example`](.env.example) for the full list of supported environment variables.
-
----
 
 ## Health Check
 

@@ -45,3 +45,20 @@ class FivetranPipeline:
         except Exception as e:
             logging.error(f"FivetranPipeline stream_mission_data error: {e}")
             return {"ok": False, "error": str(e)}
+
+    async def list_connectors(self):
+        """Lists real Fivetran connectors to verify live integration."""
+        if not self.api_key or not self.api_secret:
+            return {"ok": True, "mode": "dry-run", "connectors": []}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.endpoint}/connectors",
+                    headers={"Authorization": self.auth_header, "Accept": "application/json"},
+                    timeout=10.0
+                )
+                data = response.json()
+                return {"ok": True, "connectors": data.get("data", {}).get("items", [])}
+        except Exception as e:
+            logging.error(f"FivetranPipeline list_connectors error: {e}")
+            return {"ok": False, "error": str(e)}

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +37,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Gemini-Key"],
 )
 
 # ── Security headers ─────────────────────────────────────────────────────────
@@ -100,10 +100,11 @@ def gemini_generation_config(model: str) -> dict[str, Any]:
     return config
 
 
-async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL) -> str:
-    """Call Gemini with the server API key."""
-    if not GEMINI_API_KEY:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured on the server.")
+async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL, api_key: str = "") -> str:
+    """Call Gemini. Accepts client key via api_key param (from X-Gemini-Key header)."""
+    key = api_key or GEMINI_API_KEY
+    if not key:
+        raise HTTPException(status_code=503, detail="No Gemini API key configured. Add GEMINI_API_KEY to environment or pass X-Gemini-Key header.")
 
     contents = []
     if system:
@@ -112,7 +113,7 @@ async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL) -> st
     contents.append({"role": "user", "parts": [{"text": prompt}]})
 
     payload = {"contents": contents, "generationConfig": gemini_generation_config(model)}
-    url = f"{GEMINI_API_BASE}/models/{model}:generateContent?key={GEMINI_API_KEY}"
+    url = f"{GEMINI_API_BASE}/models/{model}:generateContent?key={key}"
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(url, json=payload)
@@ -121,10 +122,11 @@ async def gemini(prompt: str, system: str = "", model: str = GEMINI_MODEL) -> st
     return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
-async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL):
+async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL, api_key: str = ""):
     """Stream a multi-turn Gemini conversation. history = [{role, content}, ...]"""
-    if not GEMINI_API_KEY:
-        yield f"data: {json.dumps({'error': 'GEMINI_API_KEY not configured'})}\n\n"
+    key = api_key or GEMINI_API_KEY
+    if not key:
+        yield f"data: {json.dumps({'error': 'No Gemini API key configured. Pass X-Gemini-Key header or set GEMINI_API_KEY.'})}\n\n"
         return
 
     # Build contents: inject system prompt as first user/model turn
@@ -137,7 +139,7 @@ async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL)
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
     payload = {"contents": contents, "generationConfig": gemini_generation_config(model)}
-    url = f"{GEMINI_API_BASE}/models/{model}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    url = f"{GEMINI_API_BASE}/models/{model}:streamGenerateContent?alt=sse&key={key}"
 
     async with httpx.AsyncClient(timeout=180) as client:
         async with client.stream("POST", url, json=payload) as resp:
@@ -155,10 +157,11 @@ async def gemini_converse_stream(history: list[dict], model: str = GEMINI_MODEL)
                         pass
 
 
-async def gemini_stream(prompt: str, system: str = "", model: str = GEMINI_MODEL):
+async def gemini_stream(prompt: str, system: str = "", model: str = GEMINI_MODEL, api_key: str = ""):
     """Single-turn SSE stream (kept for backward compat with older endpoints)."""
-    if not GEMINI_API_KEY:
-        yield f"data: {json.dumps({'error': 'GEMINI_API_KEY not configured'})}\n\n"
+    key = api_key or GEMINI_API_KEY
+    if not key:
+        yield f"data: {json.dumps({'error': 'No Gemini API key configured. Pass X-Gemini-Key header or set GEMINI_API_KEY.'})}\n\n"
         return
     contents = []
     if system:
@@ -166,7 +169,7 @@ async def gemini_stream(prompt: str, system: str = "", model: str = GEMINI_MODEL
         contents.append({"role": "model", "parts": [{"text": "Understood."}]})
     contents.append({"role": "user", "parts": [{"text": prompt}]})
     payload = {"contents": contents, "generationConfig": gemini_generation_config(model)}
-    url = f"{GEMINI_API_BASE}/models/{model}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    url = f"{GEMINI_API_BASE}/models/{model}:streamGenerateContent?alt=sse&key={key}"
     async with httpx.AsyncClient(timeout=120) as client:
         async with client.stream("POST", url, json=payload) as resp:
             async for line in resp.aiter_lines():
@@ -267,6 +270,26 @@ class DeconstructRequest(BaseModel):
 @app.get("/")
 async def serve_index():
     return FileResponse(ROOT / "index.html")
+
+
+class KeySetRequest(BaseModel):
+    gemini_api_key: str
+
+
+@app.post("/api/set-key")
+async def set_key(req: KeySetRequest):
+    """Allows judges/users to provide their own Gemini API key for this session.
+    The key is validated immediately by calling the models list endpoint."""
+    import backend.main as _self
+    test_url = f"{GEMINI_API_BASE}/models?key={req.gemini_api_key}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(test_url)
+    if resp.status_code == 200:
+        # Store in process memory for this session (resets on restart)
+        _self.GEMINI_API_KEY = req.gemini_api_key
+        return {"ok": True, "message": "API key validated and active for this session."}
+    else:
+        return {"ok": False, "message": f"Key rejected by Google: {resp.status_code}"}
 
 
 @app.get("/health")
@@ -442,7 +465,7 @@ class ChatRequest(BaseModel):
 import re as _re
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
     """
     The single conversational entry point for Dash.
     Accepts full conversation history, streams Gemini's response,
@@ -452,11 +475,13 @@ async def chat(req: ChatRequest):
     vault   = MongoVault()
     is_headless = os.getenv("DASH_HEADLESS", os.getenv("RENDER", "false")).lower() == "true"
 
+    client_key = request.headers.get("X-Gemini-Key", "")
+
     async def chat_stream():
         full_response = ""
 
         # ── Step 1: stream Gemini's reply ─────────────────────────────────
-        async for text_chunk in gemini_converse_stream(req.history):
+        async for text_chunk in gemini_converse_stream(req.history, api_key=client_key):
             full_response += text_chunk
             # Strip the DASH_ACTION block from visible text before sending
             visible = _re.sub(r"<DASH_ACTION>.*?</DASH_ACTION>", "", full_response, flags=_re.DOTALL).strip()
@@ -678,8 +703,9 @@ async def execute_mission_stream(req: MissionExecuteRequest):
 
 # ── Non-streaming mission execute (fallback) ─────────────────────────────────
 @app.post("/missions/execute")
-async def execute_mission(req: MissionExecuteRequest) -> dict[str, Any]:
+async def execute_mission(req: MissionExecuteRequest, request: Request) -> dict[str, Any]:
     """Fallback non-streaming mission endpoint."""
+    client_key = request.headers.get("X-Gemini-Key", "")
     SYSTEM_PROMPTS = {
         "task": "You are Dash, a silent power agent. Respond concisely and helpfully with real, actionable results.",
         "shopping": "You are Dash, a shopping scout. Give specific product recommendations with prices and where to buy.",
@@ -689,7 +715,7 @@ async def execute_mission(req: MissionExecuteRequest) -> dict[str, Any]:
         "workflow": "You are Dash, a workflow architect. Design a concrete, actionable recurring workflow.",
     }
     system = SYSTEM_PROMPTS.get(req.mission_type, SYSTEM_PROMPTS["task"])
-    text = await gemini(req.prompt, system)
+    text = await gemini(req.prompt, system, api_key=client_key)
     return {"status": "ok", "text": text, "mission_type": req.mission_type}
 
 
@@ -883,7 +909,7 @@ async def github_sync_mission(request: GitHubSyncRequest) -> dict[str, Any]:
 
 # ── Account resolver ──────────────────────────────────────────────────────────
 @app.post("/missions/account-resolver")
-async def account_resolver_mission(request: AccountResolverRequest) -> dict[str, Any]:
+async def account_resolver_mission(request: AccountResolverRequest, http_request: Request) -> dict[str, Any]:
     mission_id = f"account-{request.user_id}-{request.service_name}"
     vault = MongoVault()
     orchestrator = MasterOrchestrator()

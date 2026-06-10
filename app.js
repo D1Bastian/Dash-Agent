@@ -282,7 +282,8 @@
   }
 
   async function requestJSON(path, options = {}) {
-    const finalHeaders = { "Content-Type": "application/json", ...(options.headers || {}) };
+    const geminiKey = localStorage.getItem('dash-gemini-key') || '';
+    const finalHeaders = { "Content-Type": "application/json", ...(geminiKey ? {'X-Gemini-Key': geminiKey} : {}), ...(options.headers || {}) };
     const finalOptions = { ...options, headers: finalHeaders };
     const response = await fetch(`${API_BASE}${path}`, finalOptions);
     if (!response.ok) {
@@ -505,6 +506,15 @@
     `);
     els.workspaceContent.innerHTML = `
       <div class="content-stack">
+        <div class="vault-section" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:0.5rem;">
+          <h3 style="margin:0 0 0.4rem;"><i class="fa-solid fa-key"></i> API Keys <span class="tag-pill" style="background:var(--ok);color:#000;font-size:0.7rem;margin-left:8px;padding:2px 8px;border-radius:99px;font-weight:600;">Judge Setup</span></h3>
+          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Gemini API key to activate all AI features. Validated live — no restart needed.</p>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input id="gemini-key-input" type="password" class="input-field" placeholder="AIza..." style="flex:1;font-family:monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.55rem 0.9rem;color:var(--text);font-size:0.95rem;" value="${localStorage.getItem('dash-gemini-key') || ''}">
+            <button class="primary-btn" onclick="saveGeminiKey()" style="white-space:nowrap;"><i class="fa-solid fa-check"></i> Validate &amp; Save</button>
+          </div>
+          <p id="gemini-key-status" style="font-size:0.82rem;margin-top:0.5rem;color:var(--muted);"></p>
+        </div>
         <div class="grid-2">
           <label class="field">Display name
             <input data-setting="name" value="${escapeHTML(state.user.name)}">
@@ -754,9 +764,10 @@
       renderMissionPhases("type");
 
       // Stream from /chat with full conversation history
+      const geminiKey = localStorage.getItem('dash-gemini-key') || '';
       const resp = await fetch(`${API_BASE}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(geminiKey ? {'X-Gemini-Key': geminiKey} : {}) },
         body: JSON.stringify({
           user_id: state.user.id,
           history: conversationHistory,
@@ -817,9 +828,10 @@
 
     conversationHistory.push({ role: "user", content: fullPrompt });
 
+    const geminiKey = localStorage.getItem('dash-gemini-key') || '';
     const resp = await fetch(`${API_BASE}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(geminiKey ? {'X-Gemini-Key': geminiKey} : {}) },
       body: JSON.stringify({ user_id: state.user.id, history: conversationHistory }),
     });
 
@@ -1302,4 +1314,27 @@ window.showProviderToast = function(provider) {
     toast.style.opacity = "0";
     setTimeout(() => toast.remove(), 400);
   }, 3200);
+};
+
+window.saveGeminiKey = async function() {
+  const key = document.getElementById('gemini-key-input')?.value?.trim();
+  const status = document.getElementById('gemini-key-status');
+  if (!key) { if(status) status.textContent = 'Please enter a key.'; return; }
+  if(status) status.textContent = 'Validating...';
+  try {
+    const res = await fetch(`${window.location.origin}/api/set-key`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({gemini_api_key: key})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      localStorage.setItem('dash-gemini-key', key);
+      if(status) { status.textContent = '\u2705 ' + data.message; status.style.color = 'var(--ok)'; }
+    } else {
+      if(status) { status.textContent = '\u274C ' + data.message; status.style.color = 'var(--danger)'; }
+    }
+  } catch(e) {
+    if(status) { status.textContent = '\u274C Network error: ' + e.message; status.style.color = 'var(--danger)'; }
+  }
 };
