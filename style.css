@@ -214,14 +214,14 @@ body.time-dusk .horizon-wash {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(130px, 1fr) minmax(500px, 1.2fr) minmax(230px, 1fr);
-  align-items: start;
+  grid-template-columns: minmax(130px, 1fr) minmax(320px, 1.4fr) minmax(240px, 1fr);
+  align-items: center;
   gap: 18px;
-  min-height: 126px;
-  padding: 18px 24px 58px;
+  min-height: 118px;
+  padding: 18px 24px 18px;
   background: linear-gradient(180deg, rgba(8, 14, 26, 0.92), rgba(8, 14, 26, 0.6) 62%, rgba(8, 14, 26, 0));
   border-bottom: 0;
-  overflow: hidden;
+  overflow: visible;
   backdrop-filter: blur(14px);
 }
 
@@ -277,25 +277,27 @@ body.time-dusk .horizon-wash {
 }
 
 .nav-links {
-  position: absolute;
-  left: 50%;
-  bottom: 40px;
-  z-index: 3;
+  position: relative;
+  grid-column: 2;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: clamp(6px, 1.5vw, 18px);
-  width: max-content;
-  min-width: 0;
-  transform: translateX(-50%);
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 16px);
+  width: 100%;
+  max-width: 100%;
+  padding-top: 4px;
+  padding-bottom: 4px;
   pointer-events: auto;
+  transform: none;
 }
 
 .arc-shell {
   position: absolute;
-  top: 30px;
+  top: 100%;
   left: 50%;
   width: min(800px, calc(100vw - 72px));
-  height: 90px;
+  height: 88px;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -327,10 +329,10 @@ body.time-night .nav-link {
 .nav-link {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: #ecfbfc;
-  padding: 8px 14px;
-  font-size: 0.88rem;
+  padding: 10px 18px;
+  font-size: 0.9rem;
   font-weight: 600;
   transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;
 }
@@ -374,35 +376,6 @@ body.time-night .nav-link {
   color: rgba(232, 240, 254, 0.55);
 }
 
-.nav-link:nth-child(1) {
-  transform: translateY(0px);
-}
-
-.nav-link:nth-child(2) {
-  transform: translateY(14px);
-}
-
-.nav-link:nth-child(3) {
-  transform: translateY(22px);
-}
-
-.nav-link:nth-child(4) {
-  transform: translateY(22px);
-}
-
-.nav-link:nth-child(5) {
-  transform: translateY(14px);
-}
-
-.nav-link:nth-child(6) {
-  transform: translateY(0px);
-}
-
-.nav-link:hover {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
-  box-shadow: 0 1px 0 rgba(18, 39, 45, 0.08);
-}
 
 .nav-link.is-active {
   background: var(--accent);
@@ -869,6 +842,12 @@ p {
 
 .detail-card {
   text-align: left;
+  color: #1f2937;
+}
+
+.detail-card h3,
+.detail-card h4 {
+  color: #0f172a;
 }
 
 .detail-card p,
@@ -877,6 +856,7 @@ p {
 .list-row p {
   margin-bottom: 0;
   font-size: 0.86rem;
+  color: #334155;
 }
 
 .detail-card footer,
@@ -1407,9 +1387,10 @@ p {
     radial-gradient(ellipse at 55% 50%, rgba(20, 50, 130, 0.15) 0%, transparent 40%),
     #060c18;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  overflow: hidden;
+  padding: 28px 12px 32px;
+  overflow-y: auto;
 }
 
 /* Starfield inside login */
@@ -1475,15 +1456,18 @@ p {
 .login-card {
   position: relative;
   z-index: 2;
-  background: rgba(12, 18, 34, 0.78);
+  background: rgba(12, 18, 34, 0.88);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.13);
   padding: 44px 40px;
   border-radius: 28px;
   text-align: center;
-  max-width: 400px;
-  width: 90%;
+  max-width: 420px;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow:
     0 40px 80px rgba(0, 0, 0, 0.7),
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -1506,8 +1490,8 @@ p {
 }
 
 .login-card h1 {
-  font-size: 2rem;
-  margin-bottom: 8px;
+  font-size: clamp(1.9rem, 2.2vw, 2.4rem);
+  margin-bottom: 10px;
   color: #e8f0fe;
 }
 
@@ -1530,8 +1514,9 @@ p {
 
 .login-note {
   margin-top: 20px;
-  font-size: 0.85rem !important;
+  font-size: 0.87rem !important;
   color: #8896a8;
+  line-height: 1.5;
 }
 
 /* Override primary-btn inside login to dark glass style */

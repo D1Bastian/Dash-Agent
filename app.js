@@ -603,11 +603,11 @@
           <label class="field">Preferred currency
             <input data-setting="currency" value="${escapeHTML(state.user.currency)}">
           </label>
+        </div>
         <div class="detail-card">
           <h3>Superpowers</h3>
           <p>Test your GitLab configuration by creating a new repository for your mission scripts.</p>
           <button class="primary-btn" type="button" data-action="test-gitlab" style="margin-top: 10px;">Test GitLab Sync</button>
-        </div>
         </div>
         <div class="detail-card">
           <h3>Safety defaults</h3>
