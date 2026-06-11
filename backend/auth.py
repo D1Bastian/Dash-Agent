@@ -64,6 +64,15 @@ async def provider_auth_url(provider: str):
     return RedirectResponse(f"{FRONTEND_URL}?auth=demo&provider={provider}")
 
 
+@router.get("/google/status")
+async def google_status():
+    return {
+        "configured": bool(GOOGLE_CLIENT_ID),
+        "message": "Google sign-in is available. Use it to register with your Google account.",
+        "fallback": "If Google login is unavailable, create a local account and paste your Gemini key.",
+    }
+
+
 # -- 2. OAuth callback - exchange code for tokens ---------------------------
 @router.get("/google/callback")
 async def google_callback(code: str, request: Request):
