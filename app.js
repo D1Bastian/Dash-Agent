@@ -4,11 +4,11 @@
     : "http://127.0.0.1:8000";
 
   // ── Authentication & Routing ──────────────────────────────────────────
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
   const searchParams = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams([...searchParams.entries(), ...hashParams.entries()]);
 
-  if (searchParams.get("logout") === "1" || searchParams.get("reset") === "1") {
+  if (searchParams.get("logout") === "1" || searchParams.get("reset") === "1" || searchParams.get("login") === "1") {
     localStorage.removeItem("dash-token");
     localStorage.removeItem("dash-state-v1");
     localStorage.removeItem("dash-partner-config");
@@ -22,9 +22,12 @@
   const user_id = params.get("user_id");
   const name = params.get("name");
   const email = params.get("email");
+  const sessionSource = localStorage.getItem("dash-session-source");
+
   if (token) {
-    // Store token
+    // Store token and session source
     localStorage.setItem("dash-token", token);
+    localStorage.setItem("dash-session-source", provider);
     // Save user info
     const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
     const newState = saved || { user: {} };
@@ -47,8 +50,9 @@
   } else if (searchParams.get("auth") === "demo") {
     const saved = JSON.parse(localStorage.getItem("dash-state-v1") || "null");
     const newState = saved || { user: {} };
-    newState.user = { id: "demo-authorized", name: "Sarah K.", email: "sarah@example.com", country: "United States", currency: "USD", homeAirport: "SFO" };
+    newState.user = { id: "demo-authorized", name: "user1", email: "user1@example.com", country: "United States", currency: "USD", homeAirport: "SFO" };
     localStorage.setItem("dash-state-v1", JSON.stringify(newState));
+    localStorage.setItem("dash-session-source", "demo");
     // Clean up URL
     window.history.replaceState(null, null, window.location.pathname);
   }
@@ -265,6 +269,28 @@
       return saved ? { ...defaultState, ...saved } : structuredClone(defaultState);
     } catch (_) {
       return structuredClone(defaultState);
+    }
+  }
+
+  function syncAuthUI() {
+    const loginButton = document.getElementById("login-action-btn");
+    const userBtn = document.getElementById("user-profile-btn");
+    const label = document.querySelector(".user-label");
+    const initials = document.querySelector(".avatar-initials");
+
+    const isAuthed = state.user && state.user.id && state.user.id !== "require-login";
+    if (loginButton) {
+      loginButton.textContent = isAuthed ? "Sign out" : "Sign in";
+    }
+    if (userBtn) {
+      userBtn.hidden = !isAuthed;
+    }
+    if (label) {
+      label.textContent = state.user.name ? state.user.name : "Judge";
+    }
+    if (initials) {
+      const initialsText = (state.user.name || "Judge").split(" ").map((part) => part[0] || "").slice(0, 2).join("");
+      initials.textContent = initialsText.toUpperCase();
     }
   }
 
@@ -516,8 +542,8 @@
     els.workspaceContent.innerHTML = `
       <div class="content-stack">
         <div class="vault-section" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:0.5rem;">
-          <h3 style="margin:0 0 0.4rem;"><i class="fa-solid fa-key"></i> API Keys <span class="tag-pill" style="background:var(--ok);color:#000;font-size:0.7rem;margin-left:8px;padding:2px 8px;border-radius:99px;font-weight:600;">Judge Setup</span></h3>
-          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Gemini API key to activate AI features. Partner keys can be added below for live integrations.</p>
+          <h3 style="margin:0 0 0.4rem;"><i class="fa-solid fa-key"></i> Judge configuration <span class="tag-pill" style="background:var(--ok);color:#000;font-size:0.7rem;margin-left:8px;padding:2px 8px;border-radius:99px;font-weight:600;">Judges only</span></h3>
+          <p style="color:var(--muted);font-size:0.9rem;margin-bottom:1rem;">Paste your Gemini API key to enable live AI missions. These values are stored locally in your browser and are intended for judge review and live integration checks only.</p>
           <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
             <input id="gemini-key-input" type="password" class="input-field" placeholder="Gemini API key" style="flex:1;min-width:220px;font-family:monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.55rem 0.9rem;color:var(--text);font-size:0.95rem;" value="${localStorage.getItem('dash-gemini-key') || ''}">
             <button class="primary-btn" onclick="saveGeminiKey()" style="white-space:nowrap;"><i class="fa-solid fa-check"></i> Validate &amp; Save</button>
@@ -560,7 +586,9 @@
             </label>
           </div>
           <button class="primary-btn" type="button" onclick="savePartnerConfig()" style="margin-top:1rem;white-space:nowrap;"><i class="fa-solid fa-floppy-disk"></i> Save Partner Keys</button>
+          <button class="subtle-btn" type="button" onclick="pingIntegrations()" style="margin-top:1rem; margin-left:0.75rem; white-space:nowrap;"><i class="fa-solid fa-wave-square"></i> Ping Integrations</button>
           <p id="partner-key-status" style="font-size:0.82rem;margin-top:0.5rem;color:var(--muted);"></p>
+          <div id="integration-status" style="margin-top:1rem;"></div>
         </div>
         <div class="grid-2">
           <label class="field">Display name
@@ -584,6 +612,10 @@
         <div class="detail-card">
           <h3>Safety defaults</h3>
           <p>Dash prepares carts, account flows, posts, and sync plans, but stops before payment, CAPTCHA/MFA, verification, publishing, or irreversible account changes.</p>
+        </div>
+        <div class="detail-card" style="background:rgba(55,65,81,0.12);border:1px solid rgba(255,255,255,0.08);">
+          <h3>Judge note</h3>
+          <p>This review interface is designed for judges: demo mode is the safest path, live API keys are optional, and Google sign-in is only shown when the deployment supports it.</p>
         </div>
       </div>
     `;
@@ -1146,16 +1178,6 @@
     notify("Connection staged", `${source} will use an approved OAuth, vault reference, or browser handoff flow.`, true, "marketplace");
   }
 
-  function appConnectProvider(source) {
-    connectSource(source);
-  }
-
-  function toggleCreateAccountForm() {
-    const panel = document.getElementById("account-creation-panel");
-    if (!panel) return;
-    panel.hidden = !panel.hidden;
-  }
-
   async function createLocalAccount() {
     const nameInput = document.getElementById("account-name");
     const emailInput = document.getElementById("account-email");
@@ -1163,22 +1185,23 @@
     const email = emailInput?.value?.trim() || "";
 
     if (!name || !email) {
-      notify("Complete account details", "Please enter both your name and email to create a local account.", true, "settings");
+      notify("Complete account details", "Please enter both your name and email to create a local judge account.", true, "settings");
       return;
     }
 
     state.user.id = state.user.id && state.user.id !== "require-login"
       ? state.user.id
-      : `local-${Date.now()}`;
+      : `judge-${Date.now()}`;
     state.user.name = name;
     state.user.email = email;
+    localStorage.setItem("dash-session-source", "local");
     persist();
 
     try {
       await registerUser();
-      notify("Account created", "Your local account is ready. Google connect is available next.", false, "settings");
+      notify("Judge account ready", "Your judge account is ready. Google connect is available if configured.", false, "settings");
     } catch (error) {
-      notify("Local account saved", "Account created locally, but backend registration could not complete.", true, "settings");
+      notify("Local judge account saved", "Account created locally, but backend registration could not complete.", true, "settings");
     }
 
     const loginOverlay = document.getElementById("login-overlay");
@@ -1186,6 +1209,7 @@
     if (loginOverlay && appShell) {
       loginOverlay.hidden = true;
       appShell.hidden = false;
+      syncAuthUI();
       startApp();
     }
   }
@@ -1220,11 +1244,43 @@
     loadArchitecture();
   }
 
-  window.toggleCreateAccountForm = toggleCreateAccountForm;
   window.createLocalAccount = createLocalAccount;
-  window.appConnectGoogle = () => connectSource("google");
-  window.appConnectProvider = appConnectProvider;
+  window.appConnectGoogle = connectGoogle;
   window.signOut = signOut;
+  window.goToLogin = signOut;
+
+  async function connectGoogle() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/google/status`);
+      const status = await res.json();
+      if (status.configured) {
+        window.location.href = `${API_BASE}/auth/google/url`;
+        return;
+      }
+      notify("Google login unavailable", status.message + " " + status.fallback, true, "settings");
+    } catch (err) {
+      notify("Google login error", "Could not check Google status. Use local account instead.", true, "settings");
+    }
+  }
+
+  async function checkGoogleAvailability() {
+    const btn = document.getElementById("google-connect-btn");
+    const note = document.getElementById("google-status-note");
+    if (!btn || !note) return;
+    try {
+      const res = await fetch(`${API_BASE}/auth/google/status`);
+      const status = await res.json();
+      if (!status.configured) {
+        btn.hidden = true;
+        note.textContent = "Google sign-in is not configured. Create a local account instead.";
+      } else {
+        note.textContent = status.message;
+      }
+    } catch (err) {
+      btn.hidden = true;
+      note.textContent = "Unable to check Google sign-in status. Use a local account instead.";
+    }
+  }
 
   function saveSettings() {
     document.querySelectorAll("[data-setting]").forEach((input) => {
@@ -1236,15 +1292,11 @@
   }
 
   function attachLoginHandlers() {
-    document.getElementById("google-connect-btn")?.addEventListener("click", () => connectSource("google"));
-    document.getElementById("create-account-toggle")?.addEventListener("click", toggleCreateAccountForm);
+    document.getElementById("google-connect-btn")?.addEventListener("click", connectGoogle);
     document.getElementById("create-account-submit")?.addEventListener("click", createLocalAccount);
     document.getElementById("demo-login-btn")?.addEventListener("click", () => { window.location.href = "?auth=demo"; });
+    document.getElementById("login-action-btn")?.addEventListener("click", signOut);
     document.getElementById("login-gemini-key-btn")?.addEventListener("click", () => window.saveGeminiKey('login-gemini-key-input','login-gemini-key-status'));
-    document.querySelectorAll(".provider-icons button[data-provider]").forEach((button) => {
-      const provider = button.dataset.provider;
-      if (provider) button.addEventListener("click", () => appConnectProvider(provider));
-    });
   }
 
   function bindEvents() {
@@ -1387,12 +1439,17 @@
     state.view = "agents";
     state.activeMission = null;
     state.architecture = null;
+    localStorage.removeItem("dash-session-source");
     persist();
     const loginOverlay = document.getElementById("login-overlay");
     const appShell = document.querySelector(".app-shell");
+    const loginButton = document.getElementById("login-action-btn");
     if (loginOverlay && appShell) {
       loginOverlay.hidden = false;
       appShell.hidden = true;
+    }
+    if (loginButton) {
+      loginButton.textContent = "Sign in";
     }
   }
 
@@ -1416,25 +1473,27 @@
     els.modal.hidden = false;
   }
 
-  function init() {
+  async function init() {
     const appShell = document.querySelector(".app-shell");
     const loginOverlay = document.getElementById("login-overlay");
 
     attachLoginHandlers();
+    await checkGoogleAvailability();
 
     // Determine if user is authenticated:
     // - They have a real user id (from OAuth or demo login)
     // - OR they came in via ?auth=demo this very load (already processed above)
+    const sessionSource = localStorage.getItem("dash-session-source");
     const isAuthed = state.user && state.user.id &&
-      state.user.id !== "require-login";
+      state.user.id !== "require-login" &&
+      !!sessionSource;
+
+    loginOverlay.hidden = isAuthed;
+    appShell.hidden = !isAuthed;
 
     if (isAuthed) {
-      loginOverlay.hidden = true;
-      appShell.hidden = false;
+      syncAuthUI();
       startApp();
-    } else {
-      loginOverlay.hidden = false;
-      appShell.hidden = true;
     }
   }
 
@@ -1499,6 +1558,34 @@ window.saveGeminiKey = async function(inputId = 'gemini-key-input', statusId = '
   }
 };
 
+window.pingIntegrations = async function() {
+  const status = document.getElementById('integration-status');
+  if (status) {
+    status.innerHTML = '<p>Checking integration health...</p>';
+    status.style.color = '';
+  }
+  try {
+    const health = await requestJSON('/health');
+    const partners = await requestJSON('/health/partners');
+    const cards = Object.entries(health.partners).map(([name, info]) => {
+      return `
+        <div class="detail-card" style="min-width:180px;">
+          <span class="source-tag">${escapeHTML(info.role)}</span>
+          <h3>${escapeHTML(name.toUpperCase())}</h3>
+          <p>Status: ${info.configured ? 'Configured' : 'Not configured'}</p>
+        </div>
+      `;
+    }).join('');
+    if (status) {
+      status.innerHTML = `<div class="grid-3" style="gap:0.75rem;">${cards}</div>`;
+    }
+  } catch (e) {
+    if (status) {
+      status.innerHTML = `<p style="color:var(--danger);">Unable to verify integrations: ${escapeHTML(e.message)}</p>`;
+    }
+  }
+};
+
 window.savePartnerConfig = async function() {
   const status = document.getElementById('partner-key-status');
   if (status) {
@@ -1544,6 +1631,9 @@ window.savePartnerConfig = async function() {
       if (status) {
         status.textContent = '✅ Partner configuration saved for this browser session.';
         status.style.color = 'var(--ok)';
+      }
+      if (typeof window.pingIntegrations === 'function') {
+        window.pingIntegrations();
       }
     } else {
       if (status) {
